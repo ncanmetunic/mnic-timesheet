@@ -1175,11 +1175,11 @@ async function loadAllUsers() {
     }
 }
 
-// Admin Weekly Planning Section
+// Admin Weekly Planning Section - Excel Style
 function showAdminWeeklyPlanningSection() {
     const content = `
         <div class="content-section">
-            <h2>📅 Weekly Planning Overview</h2>
+            <h2>📅 METUnic Müşteri İlişkileri Çalışma Programı</h2>
             
             <!-- Week Navigation -->
             <div class="week-navigation">
@@ -1192,53 +1192,52 @@ function showAdminWeeklyPlanningSection() {
             <div class="stats-container" id="weekly-overview-stats">
                 <div class="stat-card">
                     <div class="stat-value" id="total-employees">0</div>
-                    <div class="stat-label">Total Employees</div>
+                    <div class="stat-label">Toplam Çalışan</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="total-week-hours">0</div>
-                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-label">Toplam Saat</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="employees-working">0</div>
-                    <div class="stat-label">Working This Week</div>
+                    <div class="stat-label">Bu Hafta Çalışan</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="overtime-employees">0</div>
-                    <div class="stat-label">Over 30h Limit</div>
+                    <div class="stat-label">30s Aşan</div>
                 </div>
             </div>
             
-            <!-- Comprehensive Weekly Schedule Grid -->
-            <div class="comprehensive-schedule">
-                <h3>All Employees Schedule</h3>
-                <div class="schedule-container" id="comprehensive-schedule-container">
-                    <!-- Comprehensive schedule will be generated here -->
-                </div>
-            </div>
-            
-            <!-- Quick Summary Table -->
-            <div class="weekly-summary-table">
-                <h3>Weekly Summary</h3>
-                <table class="data-table" id="weekly-summary">
+            <!-- Excel-Style Schedule Grid -->
+            <div class="excel-schedule">
+                <table class="excel-table" id="excel-timesheet">
                     <thead>
                         <tr>
-                            <th>Employee</th>
-                            <th>Department</th>
-                            <th>Mon</th>
-                            <th>Tue</th>
-                            <th>Wed</th>
-                            <th>Thu</th>
-                            <th>Fri</th>
-                            <th>Sat</th>
-                            <th>Sun</th>
-                            <th>Total</th>
-                            <th>Status</th>
+                            <th class="employee-header">Çalışan</th>
+                            <th class="day-header">Pazartesi<br><span class="date-display" id="mon-date"></span></th>
+                            <th class="day-header">Salı<br><span class="date-display" id="tue-date"></span></th>
+                            <th class="day-header">Çarşamba<br><span class="date-display" id="wed-date"></span></th>
+                            <th class="day-header">Perşembe<br><span class="date-display" id="thu-date"></span></th>
+                            <th class="day-header">Cuma<br><span class="date-display" id="fri-date"></span></th>
+                            <th class="day-header">Cumartesi<br><span class="date-display" id="sat-date"></span></th>
+                            <th class="day-header">Pazar<br><span class="date-display" id="sun-date"></span></th>
+                            <th class="total-header">Toplam</th>
                         </tr>
                     </thead>
-                    <tbody id="weekly-summary-body">
-                        <tr><td colspan="11">Loading...</td></tr>
+                    <tbody id="excel-timesheet-body">
+                        <tr><td colspan="9">Loading...</td></tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- Legend -->
+            <div class="excel-legend">
+                <h4>Açıklama:</h4>
+                <div class="legend-items">
+                    <span class="legend-item"><span class="legend-box not-available">B</span> Müsait Değil</span>
+                    <span class="legend-item"><span class="legend-box available">5</span> Çalışma Saati</span>
+                    <span class="legend-item"><span class="legend-box no-work">0</span> Çalışma Yok</span>
+                </div>
             </div>
         </div>
     `;
@@ -1247,41 +1246,56 @@ function showAdminWeeklyPlanningSection() {
     
     // Initialize admin weekly planning
     adminCurrentWeekDate = new Date();
-    setupComprehensiveWeeklyPlanning();
+    setupExcelStyleWeeklyPlanning();
     
     // Setup event listeners
     document.getElementById('admin-prev-week').addEventListener('click', () => changeAdminWeek(-1));
     document.getElementById('admin-next-week').addEventListener('click', () => changeAdminWeek(1));
 }
 
-// Admin Weekly Planning Functions
+// Admin Weekly Planning Functions - Excel Style
 let adminCurrentWeekDate = new Date();
 
-function setupComprehensiveWeeklyPlanning() {
-    updateAdminWeekHeader();
-    loadComprehensiveWeeklyData();
+function setupExcelStyleWeeklyPlanning() {
+    updateExcelWeekHeader();
+    updateWeekDateHeaders();
+    loadExcelStyleWeeklyData();
 }
 
-function updateAdminWeekHeader() {
+function updateExcelWeekHeader() {
     const weekRange = document.getElementById('admin-week-range');
     const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     
-    const options = { month: 'short', day: 'numeric' };
-    const start = startOfWeek.toLocaleDateString('en-US', options);
-    const end = endOfWeek.toLocaleDateString('en-US', options);
+    const options = { day: 'numeric', month: 'short' };
+    const start = startOfWeek.toLocaleDateString('tr-TR', options);
+    const end = endOfWeek.toLocaleDateString('tr-TR', options);
     const year = startOfWeek.getFullYear();
     
     weekRange.textContent = `${start} - ${end}, ${year}`;
 }
 
-function changeAdminWeek(direction) {
-    adminCurrentWeekDate.setDate(adminCurrentWeekDate.getDate() + (direction * 7));
-    setupComprehensiveWeeklyPlanning();
+function updateWeekDateHeaders() {
+    const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
+    const dayIds = ['mon-date', 'tue-date', 'wed-date', 'thu-date', 'fri-date', 'sat-date', 'sun-date'];
+    
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        const dayElement = document.getElementById(dayIds[i]);
+        if (dayElement) {
+            dayElement.textContent = `${date.getDate()}/${date.getMonth() + 1}`;
+        }
+    }
 }
 
-async function loadComprehensiveWeeklyData() {
+function changeAdminWeek(direction) {
+    adminCurrentWeekDate.setDate(adminCurrentWeekDate.getDate() + (direction * 7));
+    setupExcelStyleWeeklyPlanning();
+}
+
+async function loadExcelStyleWeeklyData() {
     try {
         const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
         const endOfWeek = new Date(startOfWeek);
@@ -1308,20 +1322,17 @@ async function loadComprehensiveWeeklyData() {
             });
             
             // Update stats
-            updateWeeklyStats(employees, weekTimesheets);
+            updateExcelWeeklyStats(employees, weekTimesheets);
             
-            // Generate comprehensive schedule
-            generateComprehensiveSchedule(employees, weekTimesheets, startOfWeek);
-            
-            // Generate summary table
-            generateWeeklySummaryTable(employees, weekTimesheets, startOfWeek);
+            // Generate Excel-style table
+            generateExcelStyleTable(employees, weekTimesheets, startOfWeek);
         }
     } catch (error) {
-        console.error('Error loading comprehensive weekly data:', error);
+        console.error('Error loading excel style weekly data:', error);
     }
 }
 
-function updateWeeklyStats(employees, weekTimesheets) {
+function updateExcelWeeklyStats(employees, weekTimesheets) {
     const totalEmployees = employees.length;
     const totalHours = weekTimesheets.reduce((sum, entry) => sum + entry.total_hours, 0);
     const workingEmployees = new Set(weekTimesheets.map(entry => entry.user_id)).size;
@@ -1339,99 +1350,47 @@ function updateWeeklyStats(employees, weekTimesheets) {
     document.getElementById('overtime-employees').textContent = overtimeEmployees;
 }
 
-function generateComprehensiveSchedule(employees, weekTimesheets, startOfWeek) {
-    const container = document.getElementById('comprehensive-schedule-container');
-    
-    // Create header
-    let scheduleHTML = '<div class="comprehensive-header">';
-    scheduleHTML += '<div class="employee-column-header">Employee</div>';
-    
-    for (let day = 0; day < 7; day++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + day);
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const dayName = dayNames[date.getDay()];
-        const dayDate = date.getDate();
-        scheduleHTML += `<div class="day-column-header">${dayName}<br>${dayDate}</div>`;
-    }
-    scheduleHTML += '</div>';
-    
-    // Create rows for each employee
-    scheduleHTML += '<div class="comprehensive-body">';
-    employees.forEach(employee => {
-        const empEntries = weekTimesheets.filter(entry => entry.user_id === employee.id);
-        
-        scheduleHTML += '<div class="employee-row">';
-        scheduleHTML += `<div class="employee-info">
-            <div class="employee-name">${employee.username}</div>
-            <div class="employee-dept">${employee.department}</div>
-        </div>`;
-        
-        // Add day columns for this employee
-        for (let day = 0; day < 7; day++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + day);
-            const dateStr = date.toISOString().split('T')[0];
-            
-            const dayEntry = empEntries.find(entry => entry.date === dateStr);
-            
-            scheduleHTML += '<div class="employee-day-cell">';
-            if (dayEntry) {
-                const statusIcon = dayEntry.status === 'approved' ? '✓' : dayEntry.status === 'rejected' ? '✗' : '⏳';
-                scheduleHTML += `
-                    <div class="day-entry status-${dayEntry.status}" title="${dayEntry.start_time} - ${dayEntry.end_time} (${dayEntry.total_hours.toFixed(1)}h)">
-                        <div class="entry-time">${dayEntry.start_time} - ${dayEntry.end_time}</div>
-                        <div class="entry-hours">${dayEntry.total_hours.toFixed(1)}h ${statusIcon}</div>
-                    </div>
-                `;
-            } else {
-                scheduleHTML += '<div class="no-entry">-</div>';
-            }
-            scheduleHTML += '</div>';
-        }
-        
-        scheduleHTML += '</div>';
-    });
-    scheduleHTML += '</div>';
-    
-    container.innerHTML = scheduleHTML;
-}
-
-function generateWeeklySummaryTable(employees, weekTimesheets, startOfWeek) {
-    const tbody = document.getElementById('weekly-summary-body');
+function generateExcelStyleTable(employees, weekTimesheets, startOfWeek) {
+    const tbody = document.getElementById('excel-timesheet-body');
     
     tbody.innerHTML = employees.map(employee => {
         const empEntries = weekTimesheets.filter(entry => entry.user_id === employee.id);
         const totalHours = empEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
-        const hasOvertime = totalHours > 30;
-        const status = totalHours === 0 ? 'No entries' : hasOvertime ? 'Over limit' : 'Normal';
         
-        let row = `
-            <tr>
-                <td>${employee.username}</td>
-                <td>${employee.department}</td>
-        `;
+        let row = `<tr><td class="employee-name-cell">${employee.username}</td>`;
         
-        // Add daily hours
+        // Add daily hours for each day (Monday to Sunday)
         for (let day = 0; day < 7; day++) {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + day);
             const dateStr = date.toISOString().split('T')[0];
             const dayEntry = empEntries.find(entry => entry.date === dateStr);
             
+            let cellContent = '';
+            let cellClass = 'excel-day-cell';
+            
             if (dayEntry) {
-                const statusClass = `status-${dayEntry.status}`;
-                row += `<td><span class="${statusClass}">${dayEntry.total_hours.toFixed(1)}h</span></td>`;
+                // Show hours worked
+                cellContent = dayEntry.total_hours.toFixed(0);
+                cellClass += ' has-hours';
+                
+                // Add status styling
+                if (dayEntry.status === 'approved') cellClass += ' status-approved';
+                else if (dayEntry.status === 'rejected') cellClass += ' status-rejected';
+                else cellClass += ' status-pending';
             } else {
-                row += '<td>-</td>';
+                // No entry - show as "Not Available" (B) or "0"
+                // For now, show 0 for no entry, B would be for explicitly marking unavailable
+                cellContent = '0';
+                cellClass += ' no-hours';
             }
+            
+            row += `<td class="${cellClass}" title="${dayEntry ? `${dayEntry.start_time} - ${dayEntry.end_time} (${dayEntry.status})` : 'No entry'}">${cellContent}</td>`;
         }
         
-        row += `
-                <td><strong>${totalHours.toFixed(1)}h</strong></td>
-                <td><span class="status-${hasOvertime ? 'rejected' : totalHours === 0 ? 'pending' : 'approved'}">${status}</span></td>
-            </tr>
-        `;
+        // Add total hours
+        row += `<td class="excel-total-cell">${totalHours.toFixed(0)}</td>`;
+        row += '</tr>';
         
         return row;
     }).join('');

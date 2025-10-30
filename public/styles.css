@@ -1101,3 +1101,188 @@ body {
         font-size: 1rem;
     }
 }
+
+/* Excel-Style Schedule Styles */
+.excel-schedule {
+    margin: 2rem 0;
+    overflow-x: auto;
+}
+
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.excel-table th {
+    background: #4472C4;
+    color: white;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border: 1px solid #2B5A9E;
+    vertical-align: middle;
+}
+
+.employee-header {
+    background: #70AD47 !important;
+    border: 1px solid #548235 !important;
+}
+
+.day-header {
+    min-width: 80px;
+}
+
+.total-header {
+    background: #FFC000 !important;
+    color: #333 !important;
+    border: 1px solid #E6AC00 !important;
+}
+
+.date-display {
+    font-size: 0.8rem;
+    font-weight: normal;
+    opacity: 0.9;
+}
+
+.excel-table td {
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #D4D4D4;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.employee-name-cell {
+    background: #E2EFDA;
+    font-weight: bold;
+    text-align: left;
+    padding-left: 12px;
+    border: 1px solid #A8CC8C;
+}
+
+.excel-day-cell {
+    background: white;
+    font-weight: bold;
+    min-width: 50px;
+    height: 35px;
+}
+
+.excel-day-cell.no-hours {
+    background: #F2F2F2;
+    color: #666;
+}
+
+.excel-day-cell.has-hours {
+    background: #DEEBF7;
+    color: #2B5A9E;
+}
+
+.excel-day-cell.status-approved {
+    background: #E2EFDA;
+    color: #548235;
+}
+
+.excel-day-cell.status-pending {
+    background: #FFF2CC;
+    color: #BF8F00;
+}
+
+.excel-day-cell.status-rejected {
+    background: #FFEBEE;
+    color: #C62828;
+}
+
+.excel-total-cell {
+    background: #FFF2CC;
+    font-weight: bold;
+    color: #BF8F00;
+    border: 1px solid #E6AC00;
+}
+
+.excel-legend {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #F8F9FA;
+    border-radius: 8px;
+    border: 1px solid #E9ECEF;
+}
+
+.excel-legend h4 {
+    margin: 0 0 0.5rem 0;
+    color: #495057;
+}
+
+.legend-items {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.legend-box {
+    width: 30px;
+    height: 25px;
+    border: 1px solid #D4D4D4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.legend-box.not-available {
+    background: #F2F2F2;
+    color: #666;
+}
+
+.legend-box.available {
+    background: #DEEBF7;
+    color: #2B5A9E;
+}
+
+.legend-box.no-work {
+    background: white;
+    color: #666;
+}
+
+/* Excel responsive design */
+@media (max-width: 768px) {
+    .excel-table {
+        font-size: 0.8rem;
+    }
+    
+    .excel-table th {
+        padding: 8px 4px;
+        font-size: 0.8rem;
+    }
+    
+    .excel-table td {
+        padding: 6px 4px;
+        font-size: 0.8rem;
+    }
+    
+    .day-header {
+        min-width: 60px;
+    }
+    
+    .date-display {
+        font-size: 0.7rem;
+    }
+    
+    .legend-items {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
