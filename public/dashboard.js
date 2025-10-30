@@ -58,7 +58,14 @@ function renderNavigation() {
 function showSection(section) {
     // Update navigation
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    
+    // Find and activate the corresponding nav button
+    const navButtons = document.querySelectorAll('.nav-btn');
+    navButtons.forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(section.replace('-', ' '))) {
+            btn.classList.add('active');
+        }
+    });
     
     const mainContent = document.getElementById('main-content');
     
