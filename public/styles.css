@@ -338,6 +338,13 @@ body {
 .time-header {
     background: #495057;
     color: white;
+    padding: 0.75rem;
+    text-align: center;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
 }
 
 .grid-cell {
@@ -372,6 +379,35 @@ body {
     border-color: #ffc107;
     font-weight: bold;
     color: #856404;
+}
+
+.grid-cell.available {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+    cursor: pointer;
+}
+
+.grid-cell.available:hover {
+    background: #c3e6cb;
+}
+
+.assignment-cell {
+    font-size: 0.8rem;
+    font-weight: bold;
+    min-height: 40px;
+    transition: all 0.3s;
+}
+
+.assignment-cell.unavailable {
+    background: #f8d7da;
+    color: #721c24;
+    cursor: not-allowed;
+}
+
+.assignment-cell:hover:not(.unavailable) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .employee-label {
