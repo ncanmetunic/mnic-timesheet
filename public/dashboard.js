@@ -44,13 +44,13 @@ function setupNavigation() {
         navItems = [
             { id: 'timesheets', label: '📋 Manage Timesheets', icon: '' },
             { id: 'admin-planning', label: '📅 Weekly Planning', icon: '' },
+            { id: 'reports', label: '📊 Reports', icon: '' },
             { id: 'users', label: '👥 User Management', icon: '' }
         ];
     } else {
         navItems = [
             { id: 'timesheet', label: '📝 My Timesheet', icon: '' },
-            { id: 'planning', label: '📅 Weekly Planning', icon: '' },
-            { id: 'reports', label: '📊 My Reports', icon: '' }
+            { id: 'planning', label: '📅 Weekly Planning', icon: '' }
         ];
     }
     
@@ -1179,22 +1179,7 @@ async function loadAllUsers() {
 function showAdminWeeklyPlanningSection() {
     const content = `
         <div class="content-section">
-            <h2>📅 Admin Weekly Planning</h2>
-            
-            <!-- User Selection -->
-            <div class="admin-planning-controls">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="user-select">Select Employee:</label>
-                        <select id="user-select" class="user-select">
-                            <option value="">Loading users...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <button type="button" class="btn-primary" onclick="loadUserWeeklyPlan()">Load Schedule</button>
-                    </div>
-                </div>
-            </div>
+            <h2>📅 Weekly Planning Overview</h2>
             
             <!-- Week Navigation -->
             <div class="week-navigation">
@@ -1203,59 +1188,55 @@ function showAdminWeeklyPlanningSection() {
                 <button type="button" id="admin-next-week" class="nav-calendar-btn">›</button>
             </div>
             
-            <!-- Selected User Stats -->
-            <div class="stats-container" id="user-stats" style="display: none;">
+            <!-- Weekly Stats -->
+            <div class="stats-container" id="weekly-overview-stats">
                 <div class="stat-card">
-                    <div class="stat-value" id="user-week-hours">0</div>
-                    <div class="stat-label">Week Hours</div>
+                    <div class="stat-value" id="total-employees">0</div>
+                    <div class="stat-label">Total Employees</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="user-week-remaining">30</div>
-                    <div class="stat-label">Remaining</div>
+                    <div class="stat-value" id="total-week-hours">0</div>
+                    <div class="stat-label">Total Hours</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="user-week-days">0</div>
-                    <div class="stat-label">Days Worked</div>
+                    <div class="stat-value" id="employees-working">0</div>
+                    <div class="stat-label">Working This Week</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="user-name-display">-</div>
-                    <div class="stat-label">Employee</div>
+                    <div class="stat-value" id="overtime-employees">0</div>
+                    <div class="stat-label">Over 30h Limit</div>
                 </div>
             </div>
             
-            <!-- Weekly Schedule Grid -->
-            <div class="weekly-schedule" id="admin-weekly-schedule" style="display: none;">
-                <div class="schedule-header">
-                    <div class="time-column">Time</div>
-                    <div class="day-column">Monday</div>
-                    <div class="day-column">Tuesday</div>
-                    <div class="day-column">Wednesday</div>
-                    <div class="day-column">Thursday</div>
-                    <div class="day-column">Friday</div>
-                    <div class="day-column">Saturday</div>
-                    <div class="day-column">Sunday</div>
-                </div>
-                <div class="schedule-body" id="admin-schedule-body">
-                    <!-- Schedule grid will be generated here -->
+            <!-- Comprehensive Weekly Schedule Grid -->
+            <div class="comprehensive-schedule">
+                <h3>All Employees Schedule</h3>
+                <div class="schedule-container" id="comprehensive-schedule-container">
+                    <!-- Comprehensive schedule will be generated here -->
                 </div>
             </div>
             
-            <!-- All Users Weekly Summary -->
-            <div class="all-users-summary">
-                <h3>All Employees This Week</h3>
-                <table class="data-table" id="all-users-weekly">
+            <!-- Quick Summary Table -->
+            <div class="weekly-summary-table">
+                <h3>Weekly Summary</h3>
+                <table class="data-table" id="weekly-summary">
                     <thead>
                         <tr>
                             <th>Employee</th>
                             <th>Department</th>
-                            <th>Total Hours</th>
-                            <th>Days Worked</th>
+                            <th>Mon</th>
+                            <th>Tue</th>
+                            <th>Wed</th>
+                            <th>Thu</th>
+                            <th>Fri</th>
+                            <th>Sat</th>
+                            <th>Sun</th>
+                            <th>Total</th>
                             <th>Status</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="all-users-weekly-body">
-                        <tr><td colspan="6">Loading...</td></tr>
+                    <tbody id="weekly-summary-body">
+                        <tr><td colspan="11">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1266,24 +1247,19 @@ function showAdminWeeklyPlanningSection() {
     
     // Initialize admin weekly planning
     adminCurrentWeekDate = new Date();
-    setupAdminWeeklyPlanning();
+    setupComprehensiveWeeklyPlanning();
     
     // Setup event listeners
     document.getElementById('admin-prev-week').addEventListener('click', () => changeAdminWeek(-1));
     document.getElementById('admin-next-week').addEventListener('click', () => changeAdminWeek(1));
-    
-    // Load users for selection
-    loadUsersForPlanning();
 }
 
 // Admin Weekly Planning Functions
 let adminCurrentWeekDate = new Date();
-let selectedUserId = null;
-let selectedUserData = null;
 
-function setupAdminWeeklyPlanning() {
+function setupComprehensiveWeeklyPlanning() {
     updateAdminWeekHeader();
-    loadAllUsersWeeklySummary();
+    loadComprehensiveWeeklyData();
 }
 
 function updateAdminWeekHeader() {
@@ -1302,142 +1278,10 @@ function updateAdminWeekHeader() {
 
 function changeAdminWeek(direction) {
     adminCurrentWeekDate.setDate(adminCurrentWeekDate.getDate() + (direction * 7));
-    setupAdminWeeklyPlanning();
-    if (selectedUserId) {
-        loadUserWeeklyPlan();
-    }
+    setupComprehensiveWeeklyPlanning();
 }
 
-async function loadUsersForPlanning() {
-    try {
-        const response = await fetch('/api/users');
-        if (response.ok) {
-            const users = await response.json();
-            const userSelect = document.getElementById('user-select');
-            
-            userSelect.innerHTML = '<option value="">Select an employee...</option>';
-            users.filter(user => user.role === 'employee').forEach(user => {
-                userSelect.innerHTML += `<option value="${user.id}">${user.username} (${user.department})</option>`;
-            });
-        }
-    } catch (error) {
-        console.error('Error loading users:', error);
-    }
-}
-
-async function loadUserWeeklyPlan() {
-    const userSelect = document.getElementById('user-select');
-    selectedUserId = userSelect.value;
-    
-    if (!selectedUserId) {
-        alert('Please select an employee first');
-        return;
-    }
-    
-    // Find user data
-    const response = await fetch('/api/users');
-    if (response.ok) {
-        const users = await response.json();
-        selectedUserData = users.find(u => u.id == selectedUserId);
-    }
-    
-    // Show user stats and schedule
-    document.getElementById('user-stats').style.display = 'block';
-    document.getElementById('admin-weekly-schedule').style.display = 'block';
-    document.getElementById('user-name-display').textContent = selectedUserData?.username || 'Unknown';
-    
-    // Generate schedule grid
-    generateAdminWeeklySchedule();
-    
-    // Load user's weekly data
-    await loadSelectedUserWeeklyData();
-}
-
-function generateAdminWeeklySchedule() {
-    const scheduleBody = document.getElementById('admin-schedule-body');
-    const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-    const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
-    
-    let scheduleHTML = '';
-    hours.forEach(hour => {
-        scheduleHTML += `<div class="schedule-row">`;
-        scheduleHTML += `<div class="time-cell">${hour}</div>`;
-        
-        for (let day = 0; day < 7; day++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + day);
-            const dateStr = date.toISOString().split('T')[0];
-            
-            scheduleHTML += `<div class="schedule-cell admin-cell" data-date="${dateStr}" data-hour="${hour}"></div>`;
-        }
-        scheduleHTML += `</div>`;
-    });
-    
-    scheduleBody.innerHTML = scheduleHTML;
-}
-
-async function loadSelectedUserWeeklyData() {
-    if (!selectedUserId) return;
-    
-    try {
-        const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        
-        const year = startOfWeek.getFullYear();
-        const month = startOfWeek.getMonth() + 1;
-        
-        // Load user's monthly data and filter for this week
-        const response = await fetch(`/api/all-timesheets/${year}/${month}`);
-        if (response.ok) {
-            const allEntries = await response.json();
-            
-            // Filter entries for selected user and current week
-            const userWeekEntries = allEntries.filter(entry => {
-                const entryDate = new Date(entry.date);
-                return entry.user_id == selectedUserId && entryDate >= startOfWeek && entryDate <= endOfWeek;
-            });
-            
-            // Update stats
-            const totalHours = userWeekEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
-            const daysWorked = userWeekEntries.length;
-            
-            document.getElementById('user-week-hours').textContent = totalHours.toFixed(1);
-            document.getElementById('user-week-remaining').textContent = Math.max(0, 30 - totalHours).toFixed(1);
-            document.getElementById('user-week-days').textContent = daysWorked;
-            
-            // Update schedule grid
-            updateAdminScheduleGrid(userWeekEntries);
-        }
-    } catch (error) {
-        console.error('Error loading user weekly data:', error);
-    }
-}
-
-function updateAdminScheduleGrid(entries) {
-    // Clear existing entries
-    document.querySelectorAll('.admin-cell').forEach(cell => {
-        cell.className = 'schedule-cell admin-cell';
-        cell.title = '';
-    });
-    
-    // Mark cells with entries
-    entries.forEach(entry => {
-        const startHour = parseInt(entry.start_time.split(':')[0]);
-        const endHour = parseInt(entry.end_time.split(':')[0]);
-        
-        for (let hour = startHour; hour < endHour; hour++) {
-            const hourStr = String(hour).padStart(2, '0') + ':00';
-            const cell = document.querySelector(`[data-date="${entry.date}"][data-hour="${hourStr}"].admin-cell`);
-            if (cell) {
-                cell.classList.add('occupied');
-                cell.title = `${entry.start_time} - ${entry.end_time} (${entry.total_hours.toFixed(1)}h) - ${entry.status}`;
-            }
-        }
-    });
-}
-
-async function loadAllUsersWeeklySummary() {
+async function loadComprehensiveWeeklyData() {
     try {
         const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
         const endOfWeek = new Date(startOfWeek);
@@ -1455,6 +1299,7 @@ async function loadAllUsersWeeklySummary() {
         if (usersResponse.ok && timesheetsResponse.ok) {
             const users = await usersResponse.json();
             const allTimesheets = await timesheetsResponse.json();
+            const employees = users.filter(user => user.role === 'employee');
             
             // Filter timesheets for current week
             const weekTimesheets = allTimesheets.filter(entry => {
@@ -1462,41 +1307,132 @@ async function loadAllUsersWeeklySummary() {
                 return entryDate >= startOfWeek && entryDate <= endOfWeek;
             });
             
-            const tbody = document.getElementById('all-users-weekly-body');
-            const employees = users.filter(user => user.role === 'employee');
+            // Update stats
+            updateWeeklyStats(employees, weekTimesheets);
             
-            if (employees.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">No employees found</td></tr>';
-                return;
-            }
+            // Generate comprehensive schedule
+            generateComprehensiveSchedule(employees, weekTimesheets, startOfWeek);
             
-            tbody.innerHTML = employees.map(user => {
-                const userEntries = weekTimesheets.filter(entry => entry.user_id === user.id);
-                const totalHours = userEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
-                const daysWorked = userEntries.length;
-                const hasOvertime = totalHours > 30;
-                const status = totalHours === 0 ? 'No entries' : hasOvertime ? 'Over limit' : 'Normal';
-                
-                return `
-                    <tr>
-                        <td>${user.username}</td>
-                        <td>${user.department}</td>
-                        <td>${totalHours.toFixed(1)}h</td>
-                        <td>${daysWorked}</td>
-                        <td><span class="status-${hasOvertime ? 'rejected' : totalHours === 0 ? 'pending' : 'approved'}">${status}</span></td>
-                        <td>
-                            <button class="btn-secondary" onclick="viewUserPlan(${user.id}, '${user.username}')">View Plan</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            // Generate summary table
+            generateWeeklySummaryTable(employees, weekTimesheets, startOfWeek);
         }
     } catch (error) {
-        console.error('Error loading all users weekly summary:', error);
+        console.error('Error loading comprehensive weekly data:', error);
     }
 }
 
-function viewUserPlan(userId, username) {
-    document.getElementById('user-select').value = userId;
-    loadUserWeeklyPlan();
+function updateWeeklyStats(employees, weekTimesheets) {
+    const totalEmployees = employees.length;
+    const totalHours = weekTimesheets.reduce((sum, entry) => sum + entry.total_hours, 0);
+    const workingEmployees = new Set(weekTimesheets.map(entry => entry.user_id)).size;
+    
+    const overtimeEmployees = employees.filter(emp => {
+        const empHours = weekTimesheets
+            .filter(entry => entry.user_id === emp.id)
+            .reduce((sum, entry) => sum + entry.total_hours, 0);
+        return empHours > 30;
+    }).length;
+    
+    document.getElementById('total-employees').textContent = totalEmployees;
+    document.getElementById('total-week-hours').textContent = totalHours.toFixed(1);
+    document.getElementById('employees-working').textContent = workingEmployees;
+    document.getElementById('overtime-employees').textContent = overtimeEmployees;
+}
+
+function generateComprehensiveSchedule(employees, weekTimesheets, startOfWeek) {
+    const container = document.getElementById('comprehensive-schedule-container');
+    
+    // Create header
+    let scheduleHTML = '<div class="comprehensive-header">';
+    scheduleHTML += '<div class="employee-column-header">Employee</div>';
+    
+    for (let day = 0; day < 7; day++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + day);
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayName = dayNames[date.getDay()];
+        const dayDate = date.getDate();
+        scheduleHTML += `<div class="day-column-header">${dayName}<br>${dayDate}</div>`;
+    }
+    scheduleHTML += '</div>';
+    
+    // Create rows for each employee
+    scheduleHTML += '<div class="comprehensive-body">';
+    employees.forEach(employee => {
+        const empEntries = weekTimesheets.filter(entry => entry.user_id === employee.id);
+        
+        scheduleHTML += '<div class="employee-row">';
+        scheduleHTML += `<div class="employee-info">
+            <div class="employee-name">${employee.username}</div>
+            <div class="employee-dept">${employee.department}</div>
+        </div>`;
+        
+        // Add day columns for this employee
+        for (let day = 0; day < 7; day++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + day);
+            const dateStr = date.toISOString().split('T')[0];
+            
+            const dayEntry = empEntries.find(entry => entry.date === dateStr);
+            
+            scheduleHTML += '<div class="employee-day-cell">';
+            if (dayEntry) {
+                const statusIcon = dayEntry.status === 'approved' ? '✓' : dayEntry.status === 'rejected' ? '✗' : '⏳';
+                scheduleHTML += `
+                    <div class="day-entry status-${dayEntry.status}" title="${dayEntry.start_time} - ${dayEntry.end_time} (${dayEntry.total_hours.toFixed(1)}h)">
+                        <div class="entry-time">${dayEntry.start_time} - ${dayEntry.end_time}</div>
+                        <div class="entry-hours">${dayEntry.total_hours.toFixed(1)}h ${statusIcon}</div>
+                    </div>
+                `;
+            } else {
+                scheduleHTML += '<div class="no-entry">-</div>';
+            }
+            scheduleHTML += '</div>';
+        }
+        
+        scheduleHTML += '</div>';
+    });
+    scheduleHTML += '</div>';
+    
+    container.innerHTML = scheduleHTML;
+}
+
+function generateWeeklySummaryTable(employees, weekTimesheets, startOfWeek) {
+    const tbody = document.getElementById('weekly-summary-body');
+    
+    tbody.innerHTML = employees.map(employee => {
+        const empEntries = weekTimesheets.filter(entry => entry.user_id === employee.id);
+        const totalHours = empEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
+        const hasOvertime = totalHours > 30;
+        const status = totalHours === 0 ? 'No entries' : hasOvertime ? 'Over limit' : 'Normal';
+        
+        let row = `
+            <tr>
+                <td>${employee.username}</td>
+                <td>${employee.department}</td>
+        `;
+        
+        // Add daily hours
+        for (let day = 0; day < 7; day++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + day);
+            const dateStr = date.toISOString().split('T')[0];
+            const dayEntry = empEntries.find(entry => entry.date === dateStr);
+            
+            if (dayEntry) {
+                const statusClass = `status-${dayEntry.status}`;
+                row += `<td><span class="${statusClass}">${dayEntry.total_hours.toFixed(1)}h</span></td>`;
+            } else {
+                row += '<td>-</td>';
+            }
+        }
+        
+        row += `
+                <td><strong>${totalHours.toFixed(1)}h</strong></td>
+                <td><span class="status-${hasOvertime ? 'rejected' : totalHours === 0 ? 'pending' : 'approved'}">${status}</span></td>
+            </tr>
+        `;
+        
+        return row;
+    }).join('');
 }
