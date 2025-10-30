@@ -1,21 +1,21 @@
 {
-  "name": "timesheet",
+  "name": "metunic-shift-scheduler",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Two-step shift scheduling system for METUnic customer service team",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["shift", "scheduling", "availability", "metunic"],
+  "author": "METUnic Team",
+  "license": "MIT",
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "body-parser": "^2.2.0",
-    "express": "^5.1.0",
-    "express-session": "^1.18.2",
-    "sqlite3": "^5.1.7"
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "sqlite3": "^5.1.6"
   }
 }

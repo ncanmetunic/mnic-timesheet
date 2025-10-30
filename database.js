@@ -1,9 +1,9 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 
-class Database {
+class ShiftDatabase {
     constructor() {
-        this.db = new sqlite3.Database('timesheet.db');
+        this.db = new sqlite3.Database('shift_scheduler.db');
         this.init();
     }
 
@@ -15,31 +15,63 @@ class Database {
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'employee',
-                department TEXT NOT NULL,
+                department TEXT NOT NULL DEFAULT 'Customer Service',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
 
-            // Timesheets table
-            this.db.run(`CREATE TABLE IF NOT EXISTS timesheets (
+            // Availability submissions (Step 1)
+            this.db.run(`CREATE TABLE IF NOT EXISTS availability (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
-                date DATE,
-                start_time TIME,
-                end_time TIME,
-                total_hours DECIMAL(4,2),
-                status TEXT DEFAULT 'pending',
+                week_start_date DATE,
+                day_of_week INTEGER,
+                hour_start INTEGER,
+                hour_end INTEGER,
+                status TEXT DEFAULT 'available',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )`);
 
-            this.createDefaultAdmin();
+            // Actual shift assignments (Step 2)
+            this.db.run(`CREATE TABLE IF NOT EXISTS shifts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                week_start_date DATE,
+                day_of_week INTEGER,
+                hours_assigned DECIMAL(4,1),
+                assigned_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (assigned_by) REFERENCES users (id)
+            )`);
+
+            // Weekly schedules tracking
+            this.db.run(`CREATE TABLE IF NOT EXISTS weekly_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                week_start_date DATE UNIQUE,
+                status TEXT DEFAULT 'draft',
+                finalized_by INTEGER,
+                finalized_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (finalized_by) REFERENCES users (id)
+            )`);
+
+            this.createDefaultManager();
         });
     }
 
-    createDefaultAdmin() {
-        const adminPassword = bcrypt.hashSync('admin123', 10);
+    createDefaultManager() {
+        const managerPassword = bcrypt.hashSync('manager123', 10);
         this.db.run(`INSERT OR IGNORE INTO users (username, password, role, department) 
-                     VALUES ('admin', ?, 'admin', 'Management')`, [adminPassword]);
+                     VALUES ('manager', ?, 'manager', 'Management')`, [managerPassword]);
+        
+        // Create some sample employees
+        const empPassword = bcrypt.hashSync('emp123', 10);
+        const employees = ['Ali', 'Ayşe', 'Mehmet', 'Fatma', 'Ahmet'];
+        employees.forEach(name => {
+            this.db.run(`INSERT OR IGNORE INTO users (username, password, role, department) 
+                         VALUES (?, ?, 'employee', 'Customer Service')`, [name.toLowerCase(), empPassword]);
+        });
     }
 
     // User management
@@ -65,7 +97,7 @@ class Database {
 
     getAllUsers() {
         return new Promise((resolve, reject) => {
-            this.db.all(`SELECT id, username, role, department, created_at FROM users ORDER BY created_at DESC`, 
+            this.db.all(`SELECT id, username, role, department, created_at FROM users ORDER BY role, username`, 
                 [], (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows);
@@ -73,60 +105,136 @@ class Database {
         });
     }
 
-    // Timesheet management
-    saveTimesheet(userId, date, startTime, endTime, totalHours) {
+    // Availability management (Step 1)
+    async submitAvailability(userId, weekStartDate, dayOfWeek, hourStart, hourEnd, status = 'available') {
         return new Promise((resolve, reject) => {
-            this.db.run(`INSERT OR REPLACE INTO timesheets (user_id, date, start_time, end_time, total_hours) 
-                         VALUES (?, ?, ?, ?, ?)`,
-                [userId, date, startTime, endTime, totalHours], function(err) {
+            // First, remove existing availability for this user/week/day
+            this.db.run(`DELETE FROM availability WHERE user_id = ? AND week_start_date = ? AND day_of_week = ?`,
+                [userId, weekStartDate, dayOfWeek], (err) => {
+                    if (err) reject(err);
+                    else {
+                        // Insert new availability
+                        this.db.run(`INSERT INTO availability (user_id, week_start_date, day_of_week, hour_start, hour_end, status) 
+                                     VALUES (?, ?, ?, ?, ?, ?)`,
+                            [userId, weekStartDate, dayOfWeek, hourStart, hourEnd, status], function(err) {
+                                if (err) reject(err);
+                                else resolve(this.lastID);
+                            });
+                    }
+                });
+        });
+    }
+
+    getAvailabilityForWeek(weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT a.*, u.username, u.department 
+                FROM availability a
+                JOIN users u ON a.user_id = u.id
+                WHERE a.week_start_date = ?
+                ORDER BY u.username, a.day_of_week, a.hour_start
+            `, [weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    getUserAvailabilityForWeek(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM availability 
+                WHERE user_id = ? AND week_start_date = ?
+                ORDER BY day_of_week, hour_start
+            `, [userId, weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    // Shift assignment (Step 2)
+    async assignShift(userId, weekStartDate, dayOfWeek, hoursAssigned, assignedBy) {
+        return new Promise((resolve, reject) => {
+            // First, remove existing shift for this user/week/day
+            this.db.run(`DELETE FROM shifts WHERE user_id = ? AND week_start_date = ? AND day_of_week = ?`,
+                [userId, weekStartDate, dayOfWeek], (err) => {
+                    if (err) reject(err);
+                    else {
+                        // Insert new shift assignment
+                        this.db.run(`INSERT INTO shifts (user_id, week_start_date, day_of_week, hours_assigned, assigned_by) 
+                                     VALUES (?, ?, ?, ?, ?)`,
+                            [userId, weekStartDate, dayOfWeek, hoursAssigned, assignedBy], function(err) {
+                                if (err) reject(err);
+                                else resolve(this.lastID);
+                            });
+                    }
+                });
+        });
+    }
+
+    getShiftsForWeek(weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT s.*, u.username, u.department 
+                FROM shifts s
+                JOIN users u ON s.user_id = u.id
+                WHERE s.week_start_date = ?
+                ORDER BY u.username, s.day_of_week
+            `, [weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    getUserShiftsForWeek(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM shifts 
+                WHERE user_id = ? AND week_start_date = ?
+                ORDER BY day_of_week
+            `, [userId, weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    // Weekly schedule management
+    async finalizeWeeklySchedule(weekStartDate, finalizedBy) {
+        return new Promise((resolve, reject) => {
+            this.db.run(`INSERT OR REPLACE INTO weekly_schedules 
+                         (week_start_date, status, finalized_by, finalized_at) 
+                         VALUES (?, 'finalized', ?, CURRENT_TIMESTAMP)`,
+                [weekStartDate, finalizedBy], function(err) {
                     if (err) reject(err);
                     else resolve(this.lastID);
                 });
         });
     }
 
-    getTimesheetByDate(userId, date) {
+    getWeeklyScheduleStatus(weekStartDate) {
         return new Promise((resolve, reject) => {
-            this.db.get(`SELECT * FROM timesheets WHERE user_id = ? AND date = ?`,
-                [userId, date], (err, row) => {
+            this.db.get(`SELECT * FROM weekly_schedules WHERE week_start_date = ?`, 
+                [weekStartDate], (err, row) => {
                     if (err) reject(err);
-                    else resolve(row);
+                    else resolve(row || { status: 'draft' });
                 });
         });
     }
 
-    getMonthlyTimesheets(userId, year, month) {
-        return new Promise((resolve, reject) => {
-            this.db.all(`SELECT * FROM timesheets 
-                         WHERE user_id = ? AND strftime('%Y', date) = ? AND strftime('%m', date) = ?
-                         ORDER BY date`,
-                [userId, year.toString(), month.toString().padStart(2, '0')], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                });
-        });
-    }
-
-    getWeeklyHours(userId, weekStart) {
-        return new Promise((resolve, reject) => {
-            this.db.get(`SELECT SUM(total_hours) as total FROM timesheets 
-                         WHERE user_id = ? AND date >= ? AND date < date(?, '+7 days')`,
-                [userId, weekStart, weekStart], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row.total || 0);
-                });
-        });
-    }
-
-    // Admin functions
-    getAllTimesheets(year, month) {
+    // Monthly reporting
+    getMonthlyShifts(year, month) {
         return new Promise((resolve, reject) => {
             this.db.all(`
-                SELECT t.*, u.username, u.department 
-                FROM timesheets t
-                JOIN users u ON t.user_id = u.id
-                WHERE strftime('%Y', t.date) = ? AND strftime('%m', t.date) = ?
-                ORDER BY t.date DESC, u.username
+                SELECT s.*, u.username, u.department,
+                       DATE(s.week_start_date, '+' || s.day_of_week || ' days') as work_date
+                FROM shifts s
+                JOIN users u ON s.user_id = u.id
+                WHERE strftime('%Y', DATE(s.week_start_date, '+' || s.day_of_week || ' days')) = ?
+                AND strftime('%m', DATE(s.week_start_date, '+' || s.day_of_week || ' days')) = ?
+                ORDER BY work_date, u.username
             `, [year.toString(), month.toString().padStart(2, '0')], (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows);
@@ -134,30 +242,19 @@ class Database {
         });
     }
 
-    updateTimesheetStatus(timesheetId, status) {
+    // Utility functions
+    getWeeklyHoursForUser(userId, weekStartDate) {
         return new Promise((resolve, reject) => {
-            this.db.run(`UPDATE timesheets SET status = ? WHERE id = ?`,
-                [status, timesheetId], function(err) {
-                    if (err) reject(err);
-                    else resolve(this.changes);
-                });
-        });
-    }
-
-    getPendingTimesheets() {
-        return new Promise((resolve, reject) => {
-            this.db.all(`
-                SELECT t.*, u.username, u.department 
-                FROM timesheets t
-                JOIN users u ON t.user_id = u.id
-                WHERE t.status = 'pending'
-                ORDER BY t.date DESC
-            `, [], (err, rows) => {
+            this.db.get(`
+                SELECT SUM(hours_assigned) as total_hours 
+                FROM shifts 
+                WHERE user_id = ? AND week_start_date = ?
+            `, [userId, weekStartDate], (err, row) => {
                 if (err) reject(err);
-                else resolve(rows);
+                else resolve(row.total_hours || 0);
             });
         });
     }
 }
 
-module.exports = Database;
+module.exports = ShiftDatabase;

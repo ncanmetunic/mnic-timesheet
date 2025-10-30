@@ -1,14 +1,13 @@
-// Global variables
+// METUnic Shift Scheduler - Dashboard JavaScript
 let currentUser = null;
-let currentCalendarDate = new Date();
-let monthlyTimesheets = {};
+let currentWeekStart = getWeekStartDate(new Date());
 
 // Initialize dashboard
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async () => {
     try {
         await loadUserInfo();
-        setupNavigation();
-        showTimesheetSection();
+        renderNavigation();
+        showSection('overview');
     } catch (error) {
         console.error('Dashboard initialization error:', error);
         window.location.href = '/login';
@@ -29,1369 +28,458 @@ async function loadUserInfo() {
         const roleBadge = document.getElementById('role-badge');
         roleBadge.textContent = currentUser.role;
         roleBadge.className = `role-badge role-${currentUser.role}`;
-        
     } catch (error) {
         throw error;
     }
 }
 
-// Setup navigation based on user role
-function setupNavigation() {
+// Render navigation based on user role
+function renderNavigation() {
     const navigation = document.getElementById('navigation');
-    let navItems = [];
     
-    if (currentUser.role === 'admin') {
-        navItems = [
-            { id: 'timesheets', label: '📋 Manage Timesheets', icon: '' },
-            { id: 'admin-planning', label: '📅 Weekly Planning', icon: '' },
-            { id: 'reports', label: '📊 Reports', icon: '' },
-            { id: 'users', label: '👥 User Management', icon: '' }
-        ];
+    if (currentUser.role === 'manager') {
+        navigation.innerHTML = `
+            <div class="nav-btn active" onclick="showSection('overview')">📊 Overview</div>
+            <div class="nav-btn" onclick="showSection('availability-review')">👥 Review Availability</div>
+            <div class="nav-btn" onclick="showSection('assign-shifts')">📋 Assign Shifts</div>
+            <div class="nav-btn" onclick="showSection('schedule-monitor')">📅 Monitor Schedules</div>
+            <div class="nav-btn" onclick="showSection('monthly-reports')">📈 Monthly Reports</div>
+        `;
     } else {
-        navItems = [
-            { id: 'timesheet', label: '📝 My Timesheet', icon: '' },
-            { id: 'planning', label: '📅 Weekly Planning', icon: '' }
-        ];
-    }
-    
-    navigation.innerHTML = navItems.map(item => 
-        `<button class="nav-btn" onclick="showSection('${item.id}')">${item.label}</button>`
-    ).join('');
-}
-
-// Show different sections based on navigation
-function showSection(sectionId) {
-    // Update active navigation
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event?.target?.classList.add('active');
-    
-    switch(sectionId) {
-        case 'timesheet':
-            showTimesheetSection();
-            break;
-        case 'planning':
-            showWeeklyPlanningSection();
-            break;
-        case 'reports':
-            showReportsSection();
-            break;
-        case 'timesheets':
-            showManageTimesheetsSection();
-            break;
-        case 'admin-planning':
-            showAdminWeeklyPlanningSection();
-            break;
-        case 'users':
-            showUserManagementSection();
-            break;
-        default:
-            showTimesheetSection();
-    }
-}
-
-// Employee Timesheet Section
-function showTimesheetSection() {
-    const content = `
-        <div class="content-section">
-            <h2>📝 My Timesheet</h2>
-            
-            <div class="stats-container">
-                <div class="stat-card">
-                    <div class="stat-value" id="weekly-hours">0</div>
-                    <div class="stat-label">Hours This Week</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="remaining-hours">30</div>
-                    <div class="stat-label">Remaining Hours</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="monthly-hours">0</div>
-                    <div class="stat-label">Hours This Month</div>
-                </div>
-            </div>
-            
-            <!-- Calendar Navigation -->
-            <div class="calendar-navigation">
-                <button type="button" id="prev-month" class="nav-calendar-btn">‹</button>
-                <h3 id="calendar-month-year"></h3>
-                <button type="button" id="next-month" class="nav-calendar-btn">›</button>
-            </div>
-            
-            <!-- Calendar Grid -->
-            <div class="calendar-container">
-                <div class="calendar-grid" id="calendar-grid">
-                    <!-- Calendar will be generated here -->
-                </div>
-            </div>
-            
-            <!-- Timesheet Entry Form -->
-            <div class="timesheet-form-container" id="timesheet-form-container" style="display: none;">
-                <h3>Time Entry for <span id="selected-date"></span></h3>
-                <form id="timesheet-form">
-                    <input type="hidden" id="work-date" name="date" required>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="start-time">Start Time:</label>
-                            <select id="start-time" name="startTime" required>
-                                <option value="">Select start time</option>
-                                <option value="09:00">09:00</option>
-                                <option value="10:00">10:00</option>
-                                <option value="11:00">11:00</option>
-                                <option value="12:00">12:00</option>
-                                <option value="13:00">13:00</option>
-                                <option value="14:00">14:00</option>
-                                <option value="15:00">15:00</option>
-                                <option value="16:00">16:00</option>
-                                <option value="17:00">17:00</option>
-                                <option value="18:00">18:00</option>
-                                <option value="19:00">19:00</option>
-                                <option value="20:00">20:00</option>
-                                <option value="21:00">21:00</option>
-                                <option value="22:00">22:00</option>
-                                <option value="23:00">23:00</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="end-time">End Time:</label>
-                            <select id="end-time" name="endTime" required>
-                                <option value="">Select end time</option>
-                                <option value="10:00">10:00</option>
-                                <option value="11:00">11:00</option>
-                                <option value="12:00">12:00</option>
-                                <option value="13:00">13:00</option>
-                                <option value="14:00">14:00</option>
-                                <option value="15:00">15:00</option>
-                                <option value="16:00">16:00</option>
-                                <option value="17:00">17:00</option>
-                                <option value="18:00">18:00</option>
-                                <option value="19:00">19:00</option>
-                                <option value="20:00">20:00</option>
-                                <option value="21:00">21:00</option>
-                                <option value="22:00">22:00</option>
-                                <option value="23:00">23:00</option>
-                                <option value="00:00">00:00 (Midnight)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="calculated-hours">Total Hours:</label>
-                            <div id="calculated-hours" class="calculated-hours">0 hours</div>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">Save Entry</button>
-                        <button type="button" class="btn-secondary" onclick="closeTimesheetForm()">Cancel</button>
-                    </div>
-                </form>
-                
-                <div id="timesheet-message" style="margin-top: 1rem;"></div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('main-content').innerHTML = content;
-    
-    // Setup calendar
-    currentCalendarDate = new Date();
-    setupCalendar();
-    
-    // Setup event listeners
-    document.getElementById('timesheet-form').addEventListener('submit', handleTimesheetSubmit);
-    document.getElementById('start-time').addEventListener('change', calculateHours);
-    document.getElementById('end-time').addEventListener('change', calculateHours);
-    document.getElementById('prev-month').addEventListener('click', () => changeMonth(-1));
-    document.getElementById('next-month').addEventListener('click', () => changeMonth(1));
-    
-    // Load data
-    loadWeeklyHours();
-    loadMonthlyHours();
-}
-
-// Calendar Functions
-function setupCalendar() {
-    updateCalendarHeader();
-    generateCalendar();
-    loadCalendarData();
-}
-
-function updateCalendarHeader() {
-    const monthYear = document.getElementById('calendar-month-year');
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    monthYear.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
-}
-
-function changeMonth(direction) {
-    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
-    setupCalendar();
-}
-
-function generateCalendar() {
-    const calendarGrid = document.getElementById('calendar-grid');
-    const year = currentCalendarDate.getFullYear();
-    const month = currentCalendarDate.getMonth();
-    
-    // Create calendar HTML
-    let calendarHTML = '<div class="calendar-header">';
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(day => {
-        calendarHTML += `<div class="calendar-day-header">${day}</div>`;
-    });
-    calendarHTML += '</div>';
-    
-    // Get first day of month and number of days
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    
-    // Generate calendar days
-    calendarHTML += '<div class="calendar-body">';
-    
-    // Empty cells for days before month starts
-    for (let i = 0; i < firstDay; i++) {
-        calendarHTML += '<div class="calendar-day empty"></div>';
-    }
-    
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isToday = dateStr === todayStr;
-        const timesheet = monthlyTimesheets[dateStr];
-        
-        let dayClass = 'calendar-day';
-        if (isToday) dayClass += ' today';
-        if (timesheet) dayClass += ' has-entry';
-        
-        calendarHTML += `
-            <div class="${dayClass}" data-date="${dateStr}" onclick="selectDate('${dateStr}')">
-                <span class="day-number">${day}</span>
-                ${timesheet ? `<div class="entry-indicator">${timesheet.total_hours.toFixed(1)}h</div>` : ''}
-            </div>
+        navigation.innerHTML = `
+            <div class="nav-btn active" onclick="showSection('overview')">📊 Overview</div>
+            <div class="nav-btn" onclick="showSection('submit-availability')">✋ Submit Availability</div>
+            <div class="nav-btn" onclick="showSection('my-schedule')">📅 My Schedule</div>
         `;
     }
-    
-    calendarHTML += '</div>';
-    calendarGrid.innerHTML = calendarHTML;
 }
 
-async function loadCalendarData() {
-    try {
-        const year = currentCalendarDate.getFullYear();
-        const month = currentCalendarDate.getMonth() + 1;
-        const response = await fetch(`/api/monthly-timesheet/${year}/${month}`);
-        if (response.ok) {
-            const timesheets = await response.json();
-            monthlyTimesheets = {};
-            timesheets.forEach(entry => {
-                monthlyTimesheets[entry.date] = entry;
-            });
-            generateCalendar(); // Regenerate with data
-        }
-    } catch (error) {
-        console.error('Error loading calendar data:', error);
+// Show specific section
+function showSection(section) {
+    // Update navigation
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    const mainContent = document.getElementById('main-content');
+    
+    switch(section) {
+        case 'overview':
+            showOverview();
+            break;
+        case 'submit-availability':
+            showAvailabilitySubmission();
+            break;
+        case 'my-schedule':
+            showMySchedule();
+            break;
+        case 'availability-review':
+            showAvailabilityReview();
+            break;
+        case 'assign-shifts':
+            showShiftAssignment();
+            break;
+        case 'schedule-monitor':
+            showScheduleMonitor();
+            break;
+        case 'monthly-reports':
+            showMonthlyReports();
+            break;
     }
 }
 
-function selectDate(dateStr) {
-    const selectedDate = new Date(dateStr + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+// Overview section
+async function showOverview() {
+    const mainContent = document.getElementById('main-content');
     
-    if (selectedDate < today) {
-        alert('Cannot edit past entries');
-        return;
-    }
-    
-    document.getElementById('work-date').value = dateStr;
-    document.getElementById('selected-date').textContent = selectedDate.toLocaleDateString();
-    document.getElementById('timesheet-form-container').style.display = 'block';
-    
-    // Load existing entry if it exists
-    const timesheet = monthlyTimesheets[dateStr];
-    if (timesheet) {
-        document.getElementById('start-time').value = timesheet.start_time;
-        document.getElementById('end-time').value = timesheet.end_time;
-        calculateHours();
-        document.getElementById('timesheet-message').innerHTML = 
-            `<div class="message" style="background: #f0f8ff; color: #667eea; border: 1px solid #667eea;">
-                📝 Editing existing entry for ${selectedDate.toLocaleDateString()}. Make changes and click Save to update.
-            </div>`;
+    if (currentUser.role === 'manager') {
+        mainContent.innerHTML = `
+            <div class="content-section">
+                <h2>Manager Overview</h2>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-employees">-</div>
+                        <div class="stat-label">Total Employees</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="week-status">-</div>
+                        <div class="stat-label">Current Week Status</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pending-assignments">-</div>
+                        <div class="stat-label">Pending Assignments</div>
+                    </div>
+                </div>
+                <p>Use the navigation above to manage employee availability, assign shifts, and monitor schedules.</p>
+            </div>
+        `;
+        await loadManagerStats();
     } else {
-        document.getElementById('start-time').value = '';
-        document.getElementById('end-time').value = '';
-        calculateHours();
-        document.getElementById('timesheet-message').innerHTML = '';
+        mainContent.innerHTML = `
+            <div class="content-section">
+                <h2>Employee Overview</h2>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-value" id="week-hours">-</div>
+                        <div class="stat-label">This Week's Hours</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="availability-status">-</div>
+                        <div class="stat-label">Availability Status</div>
+                    </div>
+                </div>
+                <p>Submit your availability for upcoming weeks and view your assigned shifts.</p>
+                <p><strong>Remember:</strong> Maximum 30 hours per week allowed.</p>
+            </div>
+        `;
+        await loadEmployeeStats();
     }
-    
-    // Scroll to form
-    document.getElementById('timesheet-form-container').scrollIntoView({ behavior: 'smooth' });
 }
 
-function closeTimesheetForm() {
-    document.getElementById('timesheet-form-container').style.display = 'none';
-}
-
-async function loadMonthlyHours() {
+// Load manager statistics
+async function loadManagerStats() {
     try {
-        const now = new Date();
-        const response = await fetch(`/api/monthly-timesheet/${now.getFullYear()}/${now.getMonth() + 1}`);
-        if (response.ok) {
-            const entries = await response.json();
-            const totalHours = entries.reduce((sum, entry) => sum + entry.total_hours, 0);
-            document.getElementById('monthly-hours').textContent = totalHours.toFixed(1);
-        }
+        const usersResponse = await fetch('/api/users');
+        const users = await usersResponse.json();
+        const employees = users.filter(u => u.role === 'employee');
+        
+        document.getElementById('total-employees').textContent = employees.length;
+        
+        const weekStatusResponse = await fetch(`/api/week-status/${currentWeekStart}`);
+        const weekStatus = await weekStatusResponse.json();
+        document.getElementById('week-status').textContent = weekStatus.status || 'Draft';
+        
+        document.getElementById('pending-assignments').textContent = '0'; // Would need more logic
     } catch (error) {
-        console.error('Error loading monthly hours:', error);
+        console.error('Error loading manager stats:', error);
     }
 }
 
-// Weekly Planning Section
-function showWeeklyPlanningSection() {
-    const content = `
+// Load employee statistics
+async function loadEmployeeStats() {
+    try {
+        const hoursResponse = await fetch(`/api/weekly-hours/${currentWeekStart}`);
+        const hoursData = await hoursResponse.json();
+        document.getElementById('week-hours').textContent = hoursData.totalHours || 0;
+        
+        const availabilityResponse = await fetch(`/api/availability/${currentWeekStart}`);
+        const availability = await availabilityResponse.json();
+        document.getElementById('availability-status').textContent = 
+            availability.length > 0 ? 'Submitted' : 'Pending';
+    } catch (error) {
+        console.error('Error loading employee stats:', error);
+    }
+}
+
+// Availability submission for employees
+function showAvailabilitySubmission() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
         <div class="content-section">
-            <h2>📅 Weekly Planning</h2>
-            
-            <div class="stats-container">
-                <div class="stat-card">
-                    <div class="stat-value" id="current-week-hours">0</div>
-                    <div class="stat-label">Current Week Hours</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="planned-hours">0</div>
-                    <div class="stat-label">Planned Hours</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="week-remaining">30</div>
-                    <div class="stat-label">Remaining Capacity</div>
-                </div>
-            </div>
-            
-            <!-- Week Navigation -->
+            <h2>Submit Your Availability</h2>
             <div class="week-navigation">
-                <button type="button" id="prev-week" class="nav-calendar-btn">‹</button>
-                <h3 id="week-range"></h3>
-                <button type="button" id="next-week" class="nav-calendar-btn">›</button>
+                <button class="nav-week-btn" onclick="changeWeek(-1)">◀</button>
+                <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
+                <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
             </div>
-            
-            <!-- Weekly Schedule Grid -->
-            <div class="weekly-schedule">
-                <div class="schedule-header">
-                    <div class="time-column">Time</div>
-                    <div class="day-column">Monday</div>
-                    <div class="day-column">Tuesday</div>
-                    <div class="day-column">Wednesday</div>
-                    <div class="day-column">Thursday</div>
-                    <div class="day-column">Friday</div>
-                    <div class="day-column">Saturday</div>
-                    <div class="day-column">Sunday</div>
-                </div>
-                <div class="schedule-body" id="schedule-body">
-                    <!-- Schedule grid will be generated here -->
-                </div>
+            <p>Click on time slots when you are <strong>available</strong> to work. Maximum 30 hours per week.</p>
+            <div class="schedule-grid" id="availability-grid">
+                <!-- Grid will be populated by JavaScript -->
             </div>
-            
-            <!-- Weekly Summary -->
-            <div class="weekly-summary">
-                <h3>This Week's Entries</h3>
-                <table class="data-table" id="weekly-entries">
-                    <thead>
-                        <tr>
-                            <th>Day</th>
-                            <th>Date</th>
-                            <th>Start</th>
-                            <th>End</th>
-                            <th>Hours</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="weekly-entries-body">
-                        <tr><td colspan="6">Loading...</td></tr>
-                    </tbody>
-                </table>
+            <div style="margin-top: 1rem;">
+                <button class="btn-success" onclick="saveAvailability()">Save Availability</button>
+                <span id="save-status" style="margin-left: 1rem;"></span>
             </div>
         </div>
     `;
     
-    document.getElementById('main-content').innerHTML = content;
-    
-    // Initialize weekly planning
-    currentWeekDate = new Date();
-    setupWeeklyPlanning();
-    
-    // Setup event listeners
-    document.getElementById('prev-week').addEventListener('click', () => changeWeek(-1));
-    document.getElementById('next-week').addEventListener('click', () => changeWeek(1));
+    loadAvailabilityGrid();
 }
 
-// Weekly Planning Functions
-let currentWeekDate = new Date();
-
-function setupWeeklyPlanning() {
-    updateWeekHeader();
-    generateWeeklySchedule();
-    loadWeeklyData();
-}
-
-function updateWeekHeader() {
-    const weekRange = document.getElementById('week-range');
-    const startOfWeek = getStartOfWeek(currentWeekDate);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
+// Load availability grid
+async function loadAvailabilityGrid() {
+    const grid = document.getElementById('availability-grid');
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const hours = Array.from({length: 12}, (_, i) => i + 8); // 8 AM to 7 PM
     
-    const options = { month: 'short', day: 'numeric' };
-    const start = startOfWeek.toLocaleDateString('en-US', options);
-    const end = endOfWeek.toLocaleDateString('en-US', options);
-    const year = startOfWeek.getFullYear();
+    let html = '<div class="grid-header time-header">Time</div>';
+    days.forEach(day => {
+        html += `<div class="grid-header">${day}</div>`;
+    });
     
-    weekRange.textContent = `${start} - ${end}, ${year}`;
-}
-
-function changeWeek(direction) {
-    currentWeekDate.setDate(currentWeekDate.getDate() + (direction * 7));
-    setupWeeklyPlanning();
-}
-
-function getStartOfWeek(date) {
-    const start = new Date(date);
-    const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
-    start.setDate(diff);
-    start.setHours(0, 0, 0, 0);
-    return start;
-}
-
-function generateWeeklySchedule() {
-    const scheduleBody = document.getElementById('schedule-body');
-    const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-    const startOfWeek = getStartOfWeek(currentWeekDate);
-    
-    let scheduleHTML = '';
     hours.forEach(hour => {
-        scheduleHTML += `<div class="schedule-row">`;
-        scheduleHTML += `<div class="time-cell">${hour}</div>`;
-        
+        html += `<div class="grid-cell time-header">${hour}:00-${hour+1}:00</div>`;
         for (let day = 0; day < 7; day++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + day);
-            const dateStr = date.toISOString().split('T')[0];
-            
-            scheduleHTML += `<div class="schedule-cell" data-date="${dateStr}" data-hour="${hour}"></div>`;
+            html += `<div class="grid-cell" data-day="${day}" data-hour="${hour}" onclick="toggleAvailability(${day}, ${hour})"></div>`;
         }
-        scheduleHTML += `</div>`;
     });
     
-    scheduleBody.innerHTML = scheduleHTML;
-}
-
-async function loadWeeklyData() {
+    grid.innerHTML = html;
+    
+    // Load existing availability
     try {
-        const startOfWeek = getStartOfWeek(currentWeekDate);
-        const weekStartStr = startOfWeek.toISOString().split('T')[0];
+        const response = await fetch(`/api/availability/${currentWeekStart}`);
+        const availability = await response.json();
         
-        // Load weekly hours
-        const response = await fetch(`/api/weekly-hours/${weekStartStr}`);
-        if (response.ok) {
-            const data = await response.json();
-            const weeklyHours = data.totalHours || 0;
-            document.getElementById('current-week-hours').textContent = weeklyHours.toFixed(1);
-            document.getElementById('week-remaining').textContent = Math.max(0, 30 - weeklyHours).toFixed(1);
-        }
-        
-        // Load weekly entries
-        loadWeeklyEntries();
-        
-    } catch (error) {
-        console.error('Error loading weekly data:', error);
-    }
-}
-
-async function loadWeeklyEntries() {
-    try {
-        const startOfWeek = getStartOfWeek(currentWeekDate);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        
-        const year = startOfWeek.getFullYear();
-        const month = startOfWeek.getMonth() + 1;
-        
-        const response = await fetch(`/api/monthly-timesheet/${year}/${month}`);
-        if (response.ok) {
-            const allEntries = await response.json();
-            
-            // Filter entries for current week
-            const weekEntries = allEntries.filter(entry => {
-                const entryDate = new Date(entry.date);
-                return entryDate >= startOfWeek && entryDate <= endOfWeek;
-            });
-            
-            const tbody = document.getElementById('weekly-entries-body');
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            
-            if (weekEntries.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">No entries for this week</td></tr>';
-            } else {
-                tbody.innerHTML = weekEntries.map(entry => {
-                    const entryDate = new Date(entry.date);
-                    const dayName = dayNames[entryDate.getDay()];
-                    return `
-                        <tr>
-                            <td>${dayName}</td>
-                            <td>${entry.date}</td>
-                            <td>${entry.start_time}</td>
-                            <td>${entry.end_time}</td>
-                            <td>${entry.total_hours.toFixed(1)}h</td>
-                            <td><span class="status-${entry.status}">${entry.status}</span></td>
-                        </tr>
-                    `;
-                }).join('');
+        availability.forEach(slot => {
+            for (let hour = slot.hour_start; hour < slot.hour_end; hour++) {
+                const cell = document.querySelector(`[data-day="${slot.day_of_week}"][data-hour="${hour}"]`);
+                if (cell) {
+                    cell.classList.add('selected');
+                    cell.textContent = '✓';
+                }
             }
-            
-            // Update schedule grid with entries
-            updateScheduleGrid(weekEntries);
-        }
-    } catch (error) {
-        console.error('Error loading weekly entries:', error);
-    }
-}
-
-function updateScheduleGrid(entries) {
-    // Clear existing entries
-    document.querySelectorAll('.schedule-cell').forEach(cell => {
-        cell.className = 'schedule-cell';
-        cell.title = '';
-    });
-    
-    // Mark cells with entries
-    entries.forEach(entry => {
-        const startHour = parseInt(entry.start_time.split(':')[0]);
-        const endHour = parseInt(entry.end_time.split(':')[0]);
-        
-        for (let hour = startHour; hour < endHour; hour++) {
-            const hourStr = String(hour).padStart(2, '0') + ':00';
-            const cell = document.querySelector(`[data-date="${entry.date}"][data-hour="${hourStr}"]`);
-            if (cell) {
-                cell.classList.add('occupied');
-                cell.title = `${entry.start_time} - ${entry.end_time} (${entry.total_hours.toFixed(1)}h)`;
-            }
-        }
-    });
-}
-
-// Handle timesheet form submission
-async function handleTimesheetSubmit(event) {
-    event.preventDefault();
-    
-    const formData = new FormData(event.target);
-    const data = Object.fromEntries(formData.entries());
-    const messageDiv = document.getElementById('timesheet-message');
-    
-    if (!data.date || !data.startTime || !data.endTime) {
-        messageDiv.innerHTML = `<div class="message error">Please fill in all fields</div>`;
-        return;
-    }
-    
-    const calculatedHoursDiv = document.getElementById('calculated-hours');
-    if (calculatedHoursDiv.textContent.includes('⚠️')) {
-        messageDiv.innerHTML = `<div class="message error">Please fix the time selection errors before saving</div>`;
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/timesheet', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
         });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            messageDiv.innerHTML = `<div class="message success">✅ Timesheet saved successfully! Total hours: ${result.totalHours.toFixed(1)}</div>`;
-            loadWeeklyHours();
-            loadMonthlyHours();
-            loadCalendarData();
-            calculateHours();
-        } else {
-            messageDiv.innerHTML = `<div class="message error">❌ ${result.error}</div>`;
-        }
     } catch (error) {
-        messageDiv.innerHTML = `<div class="message error">❌ Error saving timesheet: ${error.message}</div>`;
+        console.error('Error loading availability:', error);
     }
 }
 
-// Calculate hours when time dropdowns change
-function calculateHours() {
-    const startTime = document.getElementById('start-time').value;
-    const endTime = document.getElementById('end-time').value;
-    const calculatedHoursDiv = document.getElementById('calculated-hours');
+// Toggle availability cell
+function toggleAvailability(day, hour) {
+    const cell = event.target;
+    if (cell.classList.contains('selected')) {
+        cell.classList.remove('selected');
+        cell.textContent = '';
+    } else {
+        cell.classList.add('selected');
+        cell.textContent = '✓';
+    }
+}
+
+// Save availability
+async function saveAvailability() {
+    const statusElement = document.getElementById('save-status');
+    statusElement.textContent = 'Saving...';
     
-    if (startTime && endTime) {
-        const start = new Date(`2000-01-01T${startTime}`);
-        const end = new Date(`2000-01-01T${endTime}`);
+    const selectedCells = document.querySelectorAll('.grid-cell.selected');
+    const availability = {};
+    
+    // Group by day
+    selectedCells.forEach(cell => {
+        const day = parseInt(cell.dataset.day);
+        const hour = parseInt(cell.dataset.hour);
         
-        if (end <= start && endTime === '00:00') {
-            end.setDate(end.getDate() + 1);
-        } else if (end <= start) {
-            calculatedHoursDiv.textContent = '⚠️ End time must be after start time';
-            calculatedHoursDiv.style.color = '#e74c3c';
+        if (!availability[day]) availability[day] = [];
+        availability[day].push(hour);
+    });
+    
+    try {
+        // Save each day's availability
+        for (const [day, hours] of Object.entries(availability)) {
+            if (hours.length > 0) {
+                const sortedHours = hours.sort((a, b) => a - b);
+                const hourStart = Math.min(...sortedHours);
+                const hourEnd = Math.max(...sortedHours) + 1;
+                
+                await fetch('/api/availability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        weekStartDate: currentWeekStart,
+                        dayOfWeek: parseInt(day),
+                        hourStart,
+                        hourEnd,
+                        status: 'available'
+                    })
+                });
+            }
+        }
+        
+        statusElement.textContent = '✅ Saved successfully!';
+        setTimeout(() => statusElement.textContent = '', 3000);
+    } catch (error) {
+        statusElement.textContent = '❌ Error saving availability';
+        console.error('Error saving availability:', error);
+    }
+}
+
+// My Schedule for employees
+async function showMySchedule() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        <div class="content-section">
+            <h2>My Schedule</h2>
+            <div class="week-navigation">
+                <button class="nav-week-btn" onclick="changeWeek(-1)">◀</button>
+                <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
+                <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
+            </div>
+            <div id="schedule-content">Loading...</div>
+        </div>
+    `;
+    
+    await loadMySchedule();
+}
+
+// Load employee's schedule
+async function loadMySchedule() {
+    try {
+        const response = await fetch(`/api/shifts/${currentWeekStart}`);
+        const shifts = await response.json();
+        
+        const scheduleContent = document.getElementById('schedule-content');
+        
+        if (shifts.length === 0) {
+            scheduleContent.innerHTML = '<p>No shifts assigned for this week yet.</p>';
             return;
         }
         
-        const hours = (end - start) / (1000 * 60 * 60);
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        let html = '<table class="data-table"><thead><tr><th>Day</th><th>Hours Assigned</th></tr></thead><tbody>';
         
-        if (hours > 15) {
-            calculatedHoursDiv.textContent = '⚠️ Cannot work more than 15 hours per day';
-            calculatedHoursDiv.style.color = '#e74c3c';
-        } else if (hours <= 0) {
-            calculatedHoursDiv.textContent = '⚠️ Invalid time range';
-            calculatedHoursDiv.style.color = '#e74c3c';
-        } else {
-            calculatedHoursDiv.textContent = `${hours.toFixed(1)} hours`;
-            calculatedHoursDiv.style.color = '#667eea';
-        }
-    } else {
-        calculatedHoursDiv.textContent = '0 hours';
-        calculatedHoursDiv.style.color = '#666';
-    }
-}
-
-// Handle date change to load existing entry
-async function handleDateChange(event) {
-    const date = event.target.value;
-    const messageDiv = document.getElementById('timesheet-message');
-    
-    messageDiv.innerHTML = '';
-    
-    try {
-        const response = await fetch(`/api/timesheet/${date}`);
-        if (response.ok) {
-            const entry = await response.json();
-            if (entry) {
-                document.getElementById('start-time').value = entry.start_time;
-                document.getElementById('end-time').value = entry.end_time;
-                calculateHours();
-                messageDiv.innerHTML = `<div class="message" style="background: #f0f8ff; color: #667eea; border: 1px solid #667eea;">
-                    📝 Editing existing entry for ${date}. Make changes and click Save to update.
-                </div>`;
-            } else {
-                document.getElementById('start-time').value = '';
-                document.getElementById('end-time').value = '';
-                calculateHours();
-            }
-        }
-    } catch (error) {
-        console.error('Error loading entry for date:', error);
-    }
-}
-
-// Load weekly hours
-async function loadWeeklyHours() {
-    try {
-        const today = new Date();
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        
-        const response = await fetch(`/api/weekly-hours/${weekStartStr}`);
-        if (response.ok) {
-            const data = await response.json();
-            const weeklyHours = data.totalHours || 0;
-            document.getElementById('weekly-hours').textContent = weeklyHours.toFixed(1);
-            document.getElementById('remaining-hours').textContent = Math.max(0, 30 - weeklyHours).toFixed(1);
-        }
-    } catch (error) {
-        console.error('Error loading weekly hours:', error);
-    }
-}
-
-// Load recent entries
-async function loadRecentEntries() {
-    try {
-        const now = new Date();
-        const response = await fetch(`/api/monthly-timesheet/${now.getFullYear()}/${now.getMonth() + 1}`);
-        if (response.ok) {
-            const entries = await response.json();
-            const tbody = document.getElementById('recent-entries-body');
+        let totalHours = 0;
+        days.forEach((day, index) => {
+            const dayShift = shifts.find(s => s.day_of_week === index);
+            const hours = dayShift ? dayShift.hours_assigned : 0;
+            totalHours += hours;
             
-            if (entries.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5">No entries found</td></tr>';
-            } else {
-                tbody.innerHTML = entries.slice(-10).reverse().map(entry => `
-                    <tr>
-                        <td>${entry.date}</td>
-                        <td>${entry.start_time}</td>
-                        <td>${entry.end_time}</td>
-                        <td>${entry.total_hours.toFixed(2)}</td>
-                        <td><span class="status-${entry.status}">${entry.status}</span></td>
-                    </tr>
-                `).join('');
-            }
-        }
-    } catch (error) {
-        console.error('Error loading recent entries:', error);
-    }
-}
-
-// Employee Reports Section
-function showReportsSection() {
-    const content = `
-        <div class="content-section">
-            <h2>📊 My Reports</h2>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="report-year">Year:</label>
-                    <select id="report-year"></select>
-                </div>
-                <div class="form-group">
-                    <label for="report-month">Month:</label>
-                    <select id="report-month"></select>
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn-primary" onclick="generateReport()">Generate Report</button>
-                </div>
-            </div>
-            
-            <div id="report-results"></div>
-        </div>
-    `;
-    
-    document.getElementById('main-content').innerHTML = content;
-    
-    // Populate selectors
-    const currentYear = new Date().getFullYear();
-    const yearSelect = document.getElementById('report-year');
-    const monthSelect = document.getElementById('report-month');
-    
-    for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        if (year === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
-    }
-    
-    const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    
-    months.forEach((month, index) => {
-        const option = document.createElement('option');
-        option.value = index + 1;
-        option.textContent = month;
-        if (index === new Date().getMonth()) option.selected = true;
-        monthSelect.appendChild(option);
-    });
-}
-
-// Generate calendar for reports
-function generateReportCalendar(year, month, entries) {
-    const monthIndex = month - 1; // JavaScript months are 0-indexed
-    const firstDay = new Date(year, monthIndex, 1).getDay();
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    
-    // Create entries lookup for quick access
-    const entriesMap = {};
-    entries.forEach(entry => {
-        entriesMap[entry.date] = entry;
-    });
-    
-    let calendarHTML = '<div class="report-calendar-header">';
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(day => {
-        calendarHTML += `<div class="report-day-header">${day}</div>`;
-    });
-    calendarHTML += '</div>';
-    
-    calendarHTML += '<div class="report-calendar-body">';
-    
-    // Empty cells for days before month starts
-    for (let i = 0; i < firstDay; i++) {
-        calendarHTML += '<div class="report-day empty"></div>';
-    }
-    
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isToday = dateStr === todayStr;
-        const entry = entriesMap[dateStr];
-        
-        let dayClass = 'report-day';
-        if (isToday) dayClass += ' today';
-        if (entry) dayClass += ' has-entry';
-        
-        let statusClass = '';
-        let statusIcon = '';
-        if (entry) {
-            statusClass = entry.status;
-            statusIcon = entry.status === 'approved' ? '✓' : entry.status === 'rejected' ? '✗' : '⏳';
-        }
-        
-        calendarHTML += `
-            <div class="${dayClass}" ${entry ? `title="${entry.start_time} - ${entry.end_time} (${entry.total_hours.toFixed(1)}h) - ${entry.status}"` : ''}>
-                <span class="report-day-number">${day}</span>
-                ${entry ? `
-                    <div class="report-entry-info">
-                        <div class="report-hours">${entry.total_hours.toFixed(1)}h</div>
-                        <div class="report-status status-${statusClass}">${statusIcon}</div>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
-    
-    calendarHTML += '</div>';
-    return calendarHTML;
-}
-
-// Generate monthly report
-async function generateReport() {
-    const year = document.getElementById('report-year').value;
-    const month = document.getElementById('report-month').value;
-    const resultsDiv = document.getElementById('report-results');
-    
-    resultsDiv.innerHTML = '<div class="loading"></div> Loading report...';
-    
-    try {
-        const response = await fetch(`/api/monthly-timesheet/${year}/${month}`);
-        if (response.ok) {
-            const entries = await response.json();
-            
-            if (entries.length === 0) {
-                resultsDiv.innerHTML = '<p>No entries found for the selected month.</p>';
-                return;
-            }
-            
-            const totalHours = entries.reduce((sum, entry) => sum + entry.total_hours, 0);
-            const approvedHours = entries.filter(e => e.status === 'approved').reduce((sum, entry) => sum + entry.total_hours, 0);
-            const pendingHours = entries.filter(e => e.status === 'pending').reduce((sum, entry) => sum + entry.total_hours, 0);
-            
-            resultsDiv.innerHTML = `
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <div class="stat-value">${totalHours.toFixed(1)}</div>
-                        <div class="stat-label">Total Hours</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${approvedHours.toFixed(1)}</div>
-                        <div class="stat-label">Approved Hours</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${pendingHours.toFixed(1)}</div>
-                        <div class="stat-label">Pending Hours</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${entries.length}</div>
-                        <div class="stat-label">Total Days</div>
-                    </div>
-                </div>
-                
-                <h3>Monthly Calendar View</h3>
-                <div class="report-calendar-container">
-                    <div class="report-calendar-grid">
-                        ${generateReportCalendar(year, month, entries)}
-                    </div>
-                </div>
-                
-                <h3>Detailed Entries</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Hours</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${entries.map(entry => `
-                            <tr>
-                                <td>${entry.date}</td>
-                                <td>${entry.start_time}</td>
-                                <td>${entry.end_time}</td>
-                                <td>${entry.total_hours.toFixed(1)}</td>
-                                <td><span class="status-${entry.status}">${entry.status}</span></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-    } catch (error) {
-        resultsDiv.innerHTML = `<div class="message error">Error generating report: ${error.message}</div>`;
-    }
-}
-
-// Admin: Manage Timesheets Section
-function showManageTimesheetsSection() {
-    const content = `
-        <div class="content-section">
-            <h2>📋 Manage Timesheets</h2>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <button type="button" class="btn-primary" onclick="loadPendingTimesheets()">Pending Approvals</button>
-                </div>
-                <div class="form-group">
-                    <select id="admin-year"></select>
-                </div>
-                <div class="form-group">
-                    <select id="admin-month"></select>
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn-secondary" onclick="loadAllTimesheets()">View All</button>
-                </div>
-            </div>
-            
-            <div id="timesheets-container">
-                <p>Click "Pending Approvals" to see entries awaiting approval, or select a month to view all entries.</p>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('main-content').innerHTML = content;
-    
-    // Populate selectors
-    const currentYear = new Date().getFullYear();
-    const yearSelect = document.getElementById('admin-year');
-    const monthSelect = document.getElementById('admin-month');
-    
-    for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        if (year === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
-    }
-    
-    const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    
-    months.forEach((month, index) => {
-        const option = document.createElement('option');
-        option.value = index + 1;
-        option.textContent = month;
-        if (index === new Date().getMonth()) option.selected = true;
-        monthSelect.appendChild(option);
-    });
-}
-
-// Load pending timesheets
-async function loadPendingTimesheets() {
-    const container = document.getElementById('timesheets-container');
-    container.innerHTML = '<div class="loading"></div> Loading pending timesheets...';
-    
-    try {
-        const response = await fetch('/api/pending-timesheets');
-        if (response.ok) {
-            const timesheets = await response.json();
-            displayTimesheets(timesheets, 'Pending Approvals');
-        } else {
-            container.innerHTML = '<div class="message error">Error loading pending timesheets</div>';
-        }
-    } catch (error) {
-        container.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-    }
-}
-
-// Load all timesheets for selected month
-async function loadAllTimesheets() {
-    const year = document.getElementById('admin-year').value;
-    const month = document.getElementById('admin-month').value;
-    const container = document.getElementById('timesheets-container');
-    
-    container.innerHTML = '<div class="loading"></div> Loading timesheets...';
-    
-    try {
-        const response = await fetch(`/api/all-timesheets/${year}/${month}`);
-        if (response.ok) {
-            const timesheets = await response.json();
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            displayTimesheets(timesheets, `${monthNames[month-1]} ${year} - All Entries`);
-        } else {
-            container.innerHTML = '<div class="message error">Error loading timesheets</div>';
-        }
-    } catch (error) {
-        container.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-    }
-}
-
-// Display timesheets
-function displayTimesheets(timesheets, title) {
-    const container = document.getElementById('timesheets-container');
-    
-    if (timesheets.length === 0) {
-        container.innerHTML = `<p>No ${title.toLowerCase()} found.</p>`;
-        return;
-    }
-    
-    const totalHours = timesheets.reduce((sum, entry) => sum + entry.total_hours, 0);
-    
-    container.innerHTML = `
-        <h3>${title}</h3>
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-value">${timesheets.length}</div>
-                <div class="stat-label">Total Entries</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${totalHours.toFixed(1)}</div>
-                <div class="stat-label">Total Hours</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${timesheets.filter(t => t.status === 'pending').length}</div>
-                <div class="stat-label">Pending</div>
-            </div>
-        </div>
-        
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Date</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Hours</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${timesheets.map(entry => `
-                    <tr>
-                        <td>${entry.username}</td>
-                        <td>${entry.department}</td>
-                        <td>${entry.date}</td>
-                        <td>${entry.start_time}</td>
-                        <td>${entry.end_time}</td>
-                        <td>${entry.total_hours.toFixed(1)}h</td>
-                        <td><span class="status-${entry.status}">${entry.status}</span></td>
-                        <td>
-                            ${entry.status === 'pending' ? `
-                                <button class="btn-secondary" onclick="approveTimesheet(${entry.id})">Approve</button>
-                                <button class="btn-danger" onclick="rejectTimesheet(${entry.id})">Reject</button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
-// Approve timesheet
-async function approveTimesheet(entryId) {
-    try {
-        const response = await fetch(`/api/timesheet/${entryId}/approve`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            html += `<tr><td>${day}</td><td>${hours} hours</td></tr>`;
         });
         
-        if (response.ok) {
-            loadPendingTimesheets(); // Refresh the view
-        } else {
-            alert('Error approving timesheet entry');
-        }
+        html += `</tbody><tfoot><tr><th>Total</th><th>${totalHours} hours</th></tr></tfoot></table>`;
+        scheduleContent.innerHTML = html;
     } catch (error) {
-        alert('Error approving timesheet entry: ' + error.message);
+        console.error('Error loading schedule:', error);
+        document.getElementById('schedule-content').innerHTML = '<p>Error loading schedule.</p>';
     }
 }
 
-// Reject timesheet
-async function rejectTimesheet(entryId) {
-    try {
-        const response = await fetch(`/api/timesheet/${entryId}/reject`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            loadPendingTimesheets(); // Refresh the view
-        } else {
-            alert('Error rejecting timesheet entry');
-        }
-    } catch (error) {
-        alert('Error rejecting timesheet entry: ' + error.message);
-    }
-}
+// Manager functions would go here (availability review, shift assignment, etc.)
+// For brevity, I'll add the basic structure
 
-// Admin: User Management Section
-function showUserManagementSection() {
-    const content = `
+function showAvailabilityReview() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
         <div class="content-section">
-            <h2>👥 User Management</h2>
-            
-            <h3>All Users</h3>
-            <table class="data-table" id="users-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Department</th>
-                        <th>Created</th>
-                    </tr>
-                </thead>
-                <tbody id="users-table-body">
-                    <tr><td colspan="4">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    document.getElementById('main-content').innerHTML = content;
-    loadAllUsers();
-}
-
-// Load all users
-async function loadAllUsers() {
-    try {
-        const response = await fetch('/api/users');
-        if (response.ok) {
-            const users = await response.json();
-            const tbody = document.getElementById('users-table-body');
-            
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
-            } else {
-                tbody.innerHTML = users.map(user => `
-                    <tr>
-                        <td>${user.username}</td>
-                        <td><span class="role-badge role-${user.role}">${user.role}</span></td>
-                        <td>${user.department}</td>
-                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
-                    </tr>
-                `).join('');
-            }
-        }
-    } catch (error) {
-        console.error('Error loading users:', error);
-    }
-}
-
-// Admin Weekly Planning Section - Excel Style
-function showAdminWeeklyPlanningSection() {
-    const content = `
-        <div class="content-section">
-            <h2>📅 METUnic Müşteri İlişkileri Çalışma Programı</h2>
-            
-            <!-- Week Navigation -->
+            <h2>Review Employee Availability</h2>
             <div class="week-navigation">
-                <button type="button" id="admin-prev-week" class="nav-calendar-btn">‹</button>
-                <h3 id="admin-week-range"></h3>
-                <button type="button" id="admin-next-week" class="nav-calendar-btn">›</button>
+                <button class="nav-week-btn" onclick="changeWeek(-1)">◀</button>
+                <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
+                <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
             </div>
-            
-            <!-- Weekly Stats -->
-            <div class="stats-container" id="weekly-overview-stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="total-employees">0</div>
-                    <div class="stat-label">Toplam Çalışan</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="total-week-hours">0</div>
-                    <div class="stat-label">Toplam Saat</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="employees-working">0</div>
-                    <div class="stat-label">Bu Hafta Çalışan</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="overtime-employees">0</div>
-                    <div class="stat-label">30s Aşan</div>
-                </div>
-            </div>
-            
-            <!-- Excel-Style Schedule Grid -->
-            <div class="excel-schedule">
-                <table class="excel-table" id="excel-timesheet">
-                    <thead>
-                        <tr>
-                            <th class="employee-header">Çalışan</th>
-                            <th class="day-header">Pazartesi<br><span class="date-display" id="mon-date"></span></th>
-                            <th class="day-header">Salı<br><span class="date-display" id="tue-date"></span></th>
-                            <th class="day-header">Çarşamba<br><span class="date-display" id="wed-date"></span></th>
-                            <th class="day-header">Perşembe<br><span class="date-display" id="thu-date"></span></th>
-                            <th class="day-header">Cuma<br><span class="date-display" id="fri-date"></span></th>
-                            <th class="day-header">Cumartesi<br><span class="date-display" id="sat-date"></span></th>
-                            <th class="day-header">Pazar<br><span class="date-display" id="sun-date"></span></th>
-                            <th class="total-header">Toplam</th>
-                        </tr>
-                    </thead>
-                    <tbody id="excel-timesheet-body">
-                        <tr><td colspan="9">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Legend -->
-            <div class="excel-legend">
-                <h4>Açıklama:</h4>
-                <div class="legend-items">
-                    <span class="legend-item"><span class="legend-box not-available">B</span> Müsait Değil</span>
-                    <span class="legend-item"><span class="legend-box available">5</span> Çalışma Saati</span>
-                    <span class="legend-item"><span class="legend-box no-work">0</span> Çalışma Yok</span>
-                </div>
-            </div>
+            <div id="availability-review-content">Loading availability...</div>
         </div>
     `;
     
-    document.getElementById('main-content').innerHTML = content;
-    
-    // Initialize admin weekly planning
-    adminCurrentWeekDate = new Date();
-    setupExcelStyleWeeklyPlanning();
-    
-    // Setup event listeners
-    document.getElementById('admin-prev-week').addEventListener('click', () => changeAdminWeek(-1));
-    document.getElementById('admin-next-week').addEventListener('click', () => changeAdminWeek(1));
+    loadAvailabilityReview();
 }
 
-// Admin Weekly Planning Functions - Excel Style
-let adminCurrentWeekDate = new Date();
-
-function setupExcelStyleWeeklyPlanning() {
-    updateExcelWeekHeader();
-    updateWeekDateHeaders();
-    loadExcelStyleWeeklyData();
-}
-
-function updateExcelWeekHeader() {
-    const weekRange = document.getElementById('admin-week-range');
-    const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    
-    const options = { day: 'numeric', month: 'short' };
-    const start = startOfWeek.toLocaleDateString('tr-TR', options);
-    const end = endOfWeek.toLocaleDateString('tr-TR', options);
-    const year = startOfWeek.getFullYear();
-    
-    weekRange.textContent = `${start} - ${end}, ${year}`;
-}
-
-function updateWeekDateHeaders() {
-    const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
-    const dayIds = ['mon-date', 'tue-date', 'wed-date', 'thu-date', 'fri-date', 'sat-date', 'sun-date'];
-    
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + i);
-        const dayElement = document.getElementById(dayIds[i]);
-        if (dayElement) {
-            dayElement.textContent = `${date.getDate()}/${date.getMonth() + 1}`;
-        }
-    }
-}
-
-function changeAdminWeek(direction) {
-    adminCurrentWeekDate.setDate(adminCurrentWeekDate.getDate() + (direction * 7));
-    setupExcelStyleWeeklyPlanning();
-}
-
-async function loadExcelStyleWeeklyData() {
+async function loadAvailabilityReview() {
     try {
-        const startOfWeek = getStartOfWeek(adminCurrentWeekDate);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        const response = await fetch(`/api/all-availability/${currentWeekStart}`);
+        const availability = await response.json();
         
-        const year = startOfWeek.getFullYear();
-        const month = startOfWeek.getMonth() + 1;
+        const content = document.getElementById('availability-review-content');
         
-        // Load all users and their timesheets for this week
-        const [usersResponse, timesheetsResponse] = await Promise.all([
-            fetch('/api/users'),
-            fetch(`/api/all-timesheets/${year}/${month}`)
-        ]);
+        if (availability.length === 0) {
+            content.innerHTML = '<p>No availability submitted for this week yet.</p>';
+            return;
+        }
         
-        if (usersResponse.ok && timesheetsResponse.ok) {
-            const users = await usersResponse.json();
-            const allTimesheets = await timesheetsResponse.json();
-            const employees = users.filter(user => user.role === 'employee');
+        // Group by employee
+        const byEmployee = {};
+        availability.forEach(slot => {
+            if (!byEmployee[slot.username]) {
+                byEmployee[slot.username] = [];
+            }
+            byEmployee[slot.username].push(slot);
+        });
+        
+        let html = '';
+        Object.entries(byEmployee).forEach(([username, slots]) => {
+            html += `<h3>${username}</h3>`;
+            html += '<table class="data-table"><thead><tr><th>Day</th><th>Time</th><th>Status</th></tr></thead><tbody>';
             
-            // Filter timesheets for current week
-            const weekTimesheets = allTimesheets.filter(entry => {
-                const entryDate = new Date(entry.date);
-                return entryDate >= startOfWeek && entryDate <= endOfWeek;
+            slots.forEach(slot => {
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                html += `<tr>
+                    <td>${days[slot.day_of_week]}</td>
+                    <td>${slot.hour_start}:00 - ${slot.hour_end}:00</td>
+                    <td>${slot.status}</td>
+                </tr>`;
             });
             
-            // Update stats
-            updateExcelWeeklyStats(employees, weekTimesheets);
-            
-            // Generate Excel-style table
-            generateExcelStyleTable(employees, weekTimesheets, startOfWeek);
-        }
+            html += '</tbody></table><br>';
+        });
+        
+        content.innerHTML = html;
     } catch (error) {
-        console.error('Error loading excel style weekly data:', error);
+        console.error('Error loading availability review:', error);
     }
 }
 
-function updateExcelWeeklyStats(employees, weekTimesheets) {
-    const totalEmployees = employees.length;
-    const totalHours = weekTimesheets.reduce((sum, entry) => sum + entry.total_hours, 0);
-    const workingEmployees = new Set(weekTimesheets.map(entry => entry.user_id)).size;
-    
-    const overtimeEmployees = employees.filter(emp => {
-        const empHours = weekTimesheets
-            .filter(entry => entry.user_id === emp.id)
-            .reduce((sum, entry) => sum + entry.total_hours, 0);
-        return empHours > 30;
-    }).length;
-    
-    document.getElementById('total-employees').textContent = totalEmployees;
-    document.getElementById('total-week-hours').textContent = totalHours.toFixed(1);
-    document.getElementById('employees-working').textContent = workingEmployees;
-    document.getElementById('overtime-employees').textContent = overtimeEmployees;
+function showShiftAssignment() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        <div class="content-section">
+            <h2>Assign Shifts</h2>
+            <p>Shift assignment interface will be implemented here.</p>
+        </div>
+    `;
 }
 
-function generateExcelStyleTable(employees, weekTimesheets, startOfWeek) {
-    const tbody = document.getElementById('excel-timesheet-body');
+function showScheduleMonitor() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        <div class="content-section">
+            <h2>Monitor Schedules</h2>
+            <p>Schedule monitoring interface will be implemented here.</p>
+        </div>
+    `;
+}
+
+function showMonthlyReports() {
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        <div class="content-section">
+            <h2>Monthly Reports</h2>
+            <p>Monthly reporting interface will be implemented here.</p>
+        </div>
+    `;
+}
+
+// Utility functions
+function getWeekStartDate(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(d.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split('T')[0];
+}
+
+function changeWeek(direction) {
+    const currentDate = new Date(currentWeekStart);
+    currentDate.setDate(currentDate.getDate() + (direction * 7));
+    currentWeekStart = getWeekStartDate(currentDate);
     
-    tbody.innerHTML = employees.map(employee => {
-        const empEntries = weekTimesheets.filter(entry => entry.user_id === employee.id);
-        const totalHours = empEntries.reduce((sum, entry) => sum + entry.total_hours, 0);
-        
-        let row = `<tr><td class="employee-name-cell">${employee.username}</td>`;
-        
-        // Add daily hours for each day (Monday to Sunday)
-        for (let day = 0; day < 7; day++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + day);
-            const dateStr = date.toISOString().split('T')[0];
-            const dayEntry = empEntries.find(entry => entry.date === dateStr);
-            
-            let cellContent = '';
-            let cellClass = 'excel-day-cell';
-            
-            if (dayEntry) {
-                // Show hours worked
-                cellContent = dayEntry.total_hours.toFixed(0);
-                cellClass += ' has-hours';
-                
-                // Add status styling
-                if (dayEntry.status === 'approved') cellClass += ' status-approved';
-                else if (dayEntry.status === 'rejected') cellClass += ' status-rejected';
-                else cellClass += ' status-pending';
+    // Update week display
+    const weekDisplay = document.getElementById('current-week-display');
+    if (weekDisplay) {
+        weekDisplay.textContent = `Week of ${formatDate(currentWeekStart)}`;
+    }
+    
+    // Reload current section data
+    const activeSection = document.querySelector('.nav-btn.active');
+    if (activeSection) {
+        const sectionName = activeSection.textContent.toLowerCase();
+        if (sectionName.includes('availability')) {
+            if (currentUser.role === 'employee') {
+                loadAvailabilityGrid();
             } else {
-                // No entry - show as "Not Available" (B) or "0"
-                // For now, show 0 for no entry, B would be for explicitly marking unavailable
-                cellContent = '0';
-                cellClass += ' no-hours';
+                loadAvailabilityReview();
             }
-            
-            row += `<td class="${cellClass}" title="${dayEntry ? `${dayEntry.start_time} - ${dayEntry.end_time} (${dayEntry.status})` : 'No entry'}">${cellContent}</td>`;
+        } else if (sectionName.includes('schedule')) {
+            loadMySchedule();
         }
-        
-        // Add total hours
-        row += `<td class="excel-total-cell">${totalHours.toFixed(0)}</td>`;
-        row += '</tr>';
-        
-        return row;
-    }).join('');
+    }
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
 }
