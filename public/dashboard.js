@@ -548,10 +548,8 @@ async function showShiftAssignment() {
                 <span class="legend-item assigned">🟡 Assigned</span>
                 <span class="legend-item unavailable">⚫ Unavailable</span>
             </div>
-            <div id="assignment-grid-container">
-                <div class="schedule-grid hourly-grid" id="assignment-grid">
-                    <!-- Grid will be populated by JavaScript -->
-                </div>
+            <div class="calendar-container" id="assignment-grid">
+                <!-- Grid will be populated by JavaScript -->
             </div>
             <div style="margin-top: 1rem;">
                 <button class="btn-success" onclick="finalizeWeeklySchedule()">Finalize Weekly Schedule</button>
@@ -737,40 +735,38 @@ async function loadHourlyAssignmentGrid() {
         const users = await usersRes.json();
         const employees = users.filter(u => u.role === 'employee');
         
-        // Build grid header
-        let html = '<div class="grid-header time-header">Employee</div>';
-        days.forEach(day => {
-            html += `<div class="grid-header day-header" colspan="16">${day}</div>`;
-        });
+        // Build vertical assignment layout - one section per day
+        let html = '';
+        const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
         
-        // Add time headers for each day
-        html += '<div class="grid-header time-header">Time</div>';
-        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-            hours.forEach(hour => {
-                html += `<div class="time-slot-header">${hour}:00</div>`;
-            });
-        }
-        
-        // Build grid body with employee rows
-        employees.forEach(employee => {
-            // Employee name cell
-            html += `<div class="employee-label">${employee.username}</div>`;
+        fullDayNames.forEach((dayName, dayIndex) => {
+            html += `<div class="day-schedule">`;
+            html += `<div class="day-schedule-header">${dayName}</div>`;
+            html += `<div class="day-grid">`;
             
-            // Time slots for each day
-            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-                // Get availability for this employee/day
+            // Employee name header
+            html += `<div class="employee-name-cell">Employee</div>`;
+            
+            // Time headers for this day
+            hours.forEach(hour => {
+                html += `<div class="day-time-header">${hour}:00</div>`;
+            });
+            
+            // Employee rows for this day
+            employees.forEach(employee => {
+                html += `<div class="employee-name-cell">${employee.username}</div>`;
+                
+                // Get availability and assignments for this employee/day
                 const dayAvailability = availability.filter(a => 
                     a.user_id === employee.id && a.day_of_week === dayIndex
                 );
-                
-                // Get existing hourly assignments for this employee/day  
                 const dayAssignments = hourlyAssignments.filter(ha => 
                     ha.user_id === employee.id && ha.day_of_week === dayIndex
                 );
                 
-                // For each hour slot
+                // Hour cells for this employee/day
                 hours.forEach(hour => {
-                    let cellClass = 'grid-cell time-slot';
+                    let cellClass = 'grid-cell time-slot assignment-drag-cell';
                     let cellContent = '';
                     let isAvailable = false;
                     let isAssigned = false;
@@ -799,7 +795,7 @@ async function loadHourlyAssignmentGrid() {
                         cellContent = '';
                     }
                     
-                    html += `<div class="${cellClass} assignment-drag-cell" 
+                    html += `<div class="${cellClass}" 
                             data-employee="${employee.id}" 
                             data-day="${dayIndex}" 
                             data-hour="${hour}"
@@ -808,9 +804,12 @@ async function loadHourlyAssignmentGrid() {
                             onmousedown="startAssignmentDrag(event, ${employee.id}, ${dayIndex}, ${hour}, '${employee.username}')"
                             onmouseover="handleAssignmentDrag(event, ${employee.id}, ${dayIndex}, ${hour})"
                             onmouseup="endAssignmentDrag(event)"
-                            title="${employee.username} - ${days[dayIndex]} ${hour}:00">${cellContent}</div>`;
+                            title="${employee.username} - ${dayName} ${hour}:00">${cellContent}</div>`;
                 });
-            }
+            });
+            
+            html += `</div>`; // Close day-grid
+            html += `</div>`; // Close day-schedule
         });
         
         grid.innerHTML = html;
