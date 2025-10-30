@@ -105,7 +105,7 @@ app.get('/api/user', requireAuth, (req, res) => {
     });
 });
 
-app.get('/api/users', requireManager, async (req, res) => {
+app.get('/api/users', requireAuth, async (req, res) => {
     try {
         const users = await db.getAllUsers();
         res.json(users);
@@ -143,7 +143,7 @@ app.get('/api/availability/:weekStartDate', requireAuth, async (req, res) => {
     }
 });
 
-app.get('/api/all-availability/:weekStartDate', requireManager, async (req, res) => {
+app.get('/api/all-availability/:weekStartDate', requireAuth, async (req, res) => {
     try {
         const availability = await db.getAvailabilityForWeek(req.params.weekStartDate);
         res.json(availability);
@@ -159,6 +159,39 @@ app.post('/api/assign-shift', requireManager, async (req, res) => {
         
         await db.assignShift(userId, weekStartDate, dayOfWeek, hoursAssigned, req.session.userId);
         res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// New hourly assignment endpoints
+app.post('/api/assign-hour', requireManager, async (req, res) => {
+    try {
+        const { userId, weekStartDate, dayOfWeek, hour } = req.body;
+        
+        await db.assignHour(userId, weekStartDate, dayOfWeek, hour, req.session.userId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/unassign-hour', requireManager, async (req, res) => {
+    try {
+        const { userId, weekStartDate, dayOfWeek, hour } = req.body;
+        
+        await db.unassignHour(userId, weekStartDate, dayOfWeek, hour);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/hourly-assignments/:weekStartDate', requireAuth, async (req, res) => {
+    try {
+        const { weekStartDate } = req.params;
+        const assignments = await db.getHourlyAssignments(weekStartDate);
+        res.json(assignments);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

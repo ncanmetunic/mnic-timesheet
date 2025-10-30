@@ -56,6 +56,20 @@ class ShiftDatabase {
                 FOREIGN KEY (finalized_by) REFERENCES users (id)
             )`);
 
+            // Hourly assignments tracking (for granular hour control)
+            this.db.run(`CREATE TABLE IF NOT EXISTS hourly_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                week_start_date DATE,
+                day_of_week INTEGER,
+                hour INTEGER,
+                assigned_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (assigned_by) REFERENCES users (id),
+                UNIQUE(user_id, week_start_date, day_of_week, hour)
+            )`);
+
             this.createDefaultManager();
         });
     }
@@ -242,12 +256,78 @@ class ShiftDatabase {
         });
     }
 
+    // Hourly assignments (new granular system)
+    async assignHour(userId, weekStartDate, dayOfWeek, hour, assignedBy) {
+        return new Promise((resolve, reject) => {
+            this.db.run(`INSERT OR REPLACE INTO hourly_assignments 
+                         (user_id, week_start_date, day_of_week, hour, assigned_by) 
+                         VALUES (?, ?, ?, ?, ?)`,
+                [userId, weekStartDate, dayOfWeek, hour, assignedBy], function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                });
+        });
+    }
+
+    async unassignHour(userId, weekStartDate, dayOfWeek, hour) {
+        return new Promise((resolve, reject) => {
+            this.db.run(`DELETE FROM hourly_assignments 
+                         WHERE user_id = ? AND week_start_date = ? AND day_of_week = ? AND hour = ?`,
+                [userId, weekStartDate, dayOfWeek, hour], function(err) {
+                    if (err) reject(err);
+                    else resolve(this.changes);
+                });
+        });
+    }
+
+    async getHourlyAssignments(weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT ha.*, u.username 
+                FROM hourly_assignments ha
+                JOIN users u ON ha.user_id = u.id
+                WHERE ha.week_start_date = ?
+                ORDER BY u.username, ha.day_of_week, ha.hour
+            `, [weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    async getUserHourlyAssignments(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM hourly_assignments 
+                WHERE user_id = ? AND week_start_date = ?
+                ORDER BY day_of_week, hour
+            `, [userId, weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
     // Utility functions
     getWeeklyHoursForUser(userId, weekStartDate) {
         return new Promise((resolve, reject) => {
             this.db.get(`
                 SELECT SUM(hours_assigned) as total_hours 
                 FROM shifts 
+                WHERE user_id = ? AND week_start_date = ?
+            `, [userId, weekStartDate], (err, row) => {
+                if (err) reject(err);
+                else resolve(row.total_hours || 0);
+            });
+        });
+    }
+
+    // Get weekly hours from hourly assignments
+    getWeeklyHoursFromHourlyAssignments(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.get(`
+                SELECT COUNT(*) as total_hours 
+                FROM hourly_assignments 
                 WHERE user_id = ? AND week_start_date = ?
             `, [userId, weekStartDate], (err, row) => {
                 if (err) reject(err);

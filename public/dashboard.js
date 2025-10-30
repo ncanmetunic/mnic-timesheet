@@ -42,14 +42,14 @@ function renderNavigation() {
             <div class="nav-btn active" onclick="showSection('overview')">📊 Overview</div>
             <div class="nav-btn" onclick="showSection('availability-review')">👥 Review Availability</div>
             <div class="nav-btn" onclick="showSection('assign-shifts')">📋 Assign Shifts</div>
-            <div class="nav-btn" onclick="showSection('schedule-monitor')">📅 Monitor Schedules</div>
+            <div class="nav-btn" onclick="showSection('this-weeks-schedule')">📅 This Week's Schedule</div>
             <div class="nav-btn" onclick="showSection('monthly-reports')">📈 Monthly Reports</div>
         `;
     } else {
         navigation.innerHTML = `
             <div class="nav-btn active" onclick="showSection('overview')">📊 Overview</div>
             <div class="nav-btn" onclick="showSection('submit-availability')">✋ Submit Availability</div>
-            <div class="nav-btn" onclick="showSection('my-schedule')">📅 My Schedule</div>
+            <div class="nav-btn" onclick="showSection('this-weeks-schedule')">📅 This Week's Schedule</div>
         `;
     }
 }
@@ -77,16 +77,14 @@ function showSection(section) {
             showAvailabilitySubmission();
             break;
         case 'my-schedule':
-            showMySchedule();
+        case 'this-weeks-schedule':
+            showThisWeeksSchedule();
             break;
         case 'availability-review':
             showAvailabilityReview();
             break;
         case 'assign-shifts':
             showShiftAssignment();
-            break;
-        case 'schedule-monitor':
-            showScheduleMonitor();
             break;
         case 'monthly-reports':
             showMonthlyReports();
@@ -270,36 +268,64 @@ let dragEndDay = null;
 let dragEndHour = null;
 let dragSelectionMode = null; // 'select' or 'deselect'
 
-// Start drag selection
+// Smart click vs drag detection
+let mouseDownTime = 0;
+let dragTimeout = null;
+let hasMoved = false;
+let currentMouseTarget = null;
+
+// Start potential drag selection
 function startDragSelection(event, day, hour) {
-    // Prevent default click behavior during drag
     event.preventDefault();
     
-    isDragging = true;
+    mouseDownTime = Date.now();
+    hasMoved = false;
+    currentMouseTarget = event.target;
     dragStartDay = day;
     dragStartHour = hour;
+    
+    // Determine selection mode based on current cell state
+    dragSelectionMode = currentMouseTarget.classList.contains('selected') ? 'deselect' : 'select';
+    
+    // Set timeout to detect if this is a click or drag
+    dragTimeout = setTimeout(() => {
+        if (!hasMoved) {
+            // This is a long press, start drag mode
+            actuallyStartDragMode(day, hour);
+        }
+    }, 150);
+    
+    console.log(`Mouse down at day ${day}, hour ${hour}, mode: ${dragSelectionMode}`);
+}
+
+// Actually start drag mode after timeout
+function actuallyStartDragMode(day, hour) {
+    isDragging = true;
     dragEndDay = day;
     dragEndHour = hour;
     
-    // Determine if we're selecting or deselecting based on current cell state
-    const cell = event.target;
-    dragSelectionMode = cell.classList.contains('selected') ? 'deselect' : 'select';
-    
-    // Apply selection to starting cell
+    // Apply initial selection
     if (dragSelectionMode === 'select') {
-        cell.classList.add('selected', 'drag-preview');
-        cell.textContent = '✓';
+        currentMouseTarget.classList.add('selected', 'drag-preview');
+        currentMouseTarget.textContent = '✓';
     } else {
-        cell.classList.remove('selected');
-        cell.classList.add('drag-preview');
-        cell.textContent = '';
+        currentMouseTarget.classList.remove('selected');
+        currentMouseTarget.classList.add('drag-preview');
+        currentMouseTarget.textContent = '';
     }
     
-    console.log(`Started drag selection: ${dragSelectionMode} at day ${day}, hour ${hour}`);
+    console.log(`Started drag mode: ${dragSelectionMode} at day ${day}, hour ${hour}`);
 }
 
 // Handle drag selection
 function handleDragSelection(event, day, hour) {
+    // If we're moving and haven't started drag mode yet, start it now
+    if (!isDragging && !hasMoved && dragTimeout) {
+        hasMoved = true;
+        clearTimeout(dragTimeout);
+        actuallyStartDragMode(dragStartDay, dragStartHour);
+    }
+    
     if (!isDragging) return;
     
     dragEndDay = day;
@@ -336,22 +362,45 @@ function handleDragSelection(event, day, hour) {
 
 // End drag selection
 function endDragSelection(event) {
-    if (!isDragging) return;
+    const isClick = !isDragging && !hasMoved && (Date.now() - mouseDownTime < 150);
     
-    console.log(`Ended drag selection: ${dragSelectionMode} from day ${dragStartDay}, hour ${dragStartHour} to day ${dragEndDay}, hour ${dragEndHour}`);
+    // Clear timeout if it's still running
+    if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+    }
     
-    // Remove preview classes
-    document.querySelectorAll('.drag-preview').forEach(cell => {
-        cell.classList.remove('drag-preview');
-    });
+    if (isClick) {
+        // Handle as a simple click
+        console.log(`Handling as click: ${dragSelectionMode} at day ${dragStartDay}, hour ${dragStartHour}`);
+        
+        if (dragSelectionMode === 'select') {
+            currentMouseTarget.classList.add('selected');
+            currentMouseTarget.textContent = '✓';
+        } else {
+            currentMouseTarget.classList.remove('selected');
+            currentMouseTarget.textContent = '';
+        }
+    } else if (isDragging) {
+        // Handle as drag completion
+        console.log(`Ended drag selection: ${dragSelectionMode} from day ${dragStartDay}, hour ${dragStartHour} to day ${dragEndDay}, hour ${dragEndHour}`);
+        
+        // Remove preview classes
+        document.querySelectorAll('.drag-preview').forEach(cell => {
+            cell.classList.remove('drag-preview');
+        });
+    }
     
-    // Reset drag state
+    // Reset all state
     isDragging = false;
     dragStartDay = null;
     dragStartHour = null;
     dragEndDay = null;
     dragEndHour = null;
     dragSelectionMode = null;
+    mouseDownTime = 0;
+    hasMoved = false;
+    currentMouseTarget = null;
 }
 
 // Prevent text selection during drag
@@ -409,30 +458,14 @@ async function saveAvailability() {
 }
 
 // My Schedule for employees - now uses unified calendar view
+// Legacy function - redirects to unified schedule view
 async function showMySchedule() {
-    const mainContent = document.getElementById('main-content');
-    mainContent.innerHTML = `
-        <div class="content-section">
-            <h2>My Schedule</h2>
-            <div class="week-navigation">
-                <button class="nav-week-btn" onclick="changeWeek(-1)">◀</button>
-                <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
-                <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
-            </div>
-            <div id="calendar-container">
-                <div class="schedule-grid calendar-grid" id="calendar-grid">
-                    <!-- Calendar will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    `;
-    
-    await loadCalendarView(true); // true = personal view
+    await showThisWeeksSchedule();
 }
 
-// Legacy function - now redirects to calendar view
+// Legacy function - now redirects to calendar view  
 async function loadMySchedule() {
-    await loadCalendarView(true);
+    await loadCalendarView();
 }
 
 // Manager functions would go here (availability review, shift assignment, etc.)
@@ -531,11 +564,11 @@ async function showShiftAssignment() {
     await loadHourlyAssignmentGrid();
 }
 
-async function showScheduleMonitor() {
+async function showThisWeeksSchedule() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
         <div class="content-section">
-            <h2>Monitor Schedules</h2>
+            <h2>This Week's Schedule</h2>
             <div class="week-navigation">
                 <button class="nav-week-btn" onclick="changeWeek(-1)">◀</button>
                 <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
@@ -547,20 +580,18 @@ async function showScheduleMonitor() {
                     <div class="stat-label">Week Status</div>
                 </div>
             </div>
-            <div id="calendar-container">
-                <div class="schedule-grid calendar-grid" id="calendar-grid">
-                    <!-- Calendar will be populated by JavaScript -->
-                </div>
+            <div class="calendar-container" id="calendar-grid">
+                <!-- Calendar will be populated by JavaScript -->
             </div>
         </div>
     `;
     
-    await loadCalendarView(false); // false = manager view (all employees)
+    await loadCalendarView();
 }
 
 // Legacy function - now redirects to calendar view
 async function loadScheduleMonitor() {
-    await loadCalendarView(false);
+    await loadCalendarView();
 }
 
 function showMonthlyReports() {
@@ -646,11 +677,11 @@ function changeWeek(direction) {
                 loadAvailabilityReview();
             }
         } else if (sectionName.includes('schedule')) {
-            loadCalendarView(true);
+            loadCalendarView();
         } else if (sectionName.includes('assign')) {
             loadHourlyAssignmentGrid();
         } else if (sectionName.includes('monitor')) {
-            loadCalendarView(false);
+            loadCalendarView();
         }
     }
 }
@@ -695,14 +726,14 @@ async function loadHourlyAssignmentGrid() {
         const hours = Array.from({length: 16}, (_, i) => i + 8); // 8 AM to 11 PM
         
         // Get all availability and existing shifts for this week
-        const [availabilityRes, shiftsRes, usersRes] = await Promise.all([
+        const [availabilityRes, hourlyAssignmentsRes, usersRes] = await Promise.all([
             fetch(`/api/all-availability/${currentWeekStart}`),
-            fetch(`/api/shifts/${currentWeekStart}`),
+            fetch(`/api/hourly-assignments/${currentWeekStart}`),
             fetch('/api/users')
         ]);
         
         const availability = await availabilityRes.json();
-        const shifts = await shiftsRes.json();
+        const hourlyAssignments = await hourlyAssignmentsRes.json();
         const users = await usersRes.json();
         const employees = users.filter(u => u.role === 'employee');
         
@@ -732,9 +763,9 @@ async function loadHourlyAssignmentGrid() {
                     a.user_id === employee.id && a.day_of_week === dayIndex
                 );
                 
-                // Get existing shifts for this employee/day  
-                const dayShifts = shifts.filter(s => 
-                    s.user_id === employee.id && s.day_of_week === dayIndex
+                // Get existing hourly assignments for this employee/day  
+                const dayAssignments = hourlyAssignments.filter(ha => 
+                    ha.user_id === employee.id && ha.day_of_week === dayIndex
                 );
                 
                 // For each hour slot
@@ -751,24 +782,11 @@ async function loadHourlyAssignmentGrid() {
                         }
                     });
                     
-                    // Check if this hour is assigned - smart assignment logic
-                    dayShifts.forEach(shift => {
-                        const hoursAssigned = parseFloat(shift.hours_assigned || 0);
-                        if (hoursAssigned > 0 && isAvailable) {
-                            // Find the available window for this employee/day
-                            const availWindow = dayAvailability.find(avail => 
-                                hour >= avail.hour_start && hour < avail.hour_end
-                            );
-                            if (availWindow) {
-                                // Calculate if this hour falls within assigned hours
-                                // Assign hours starting from the beginning of availability window
-                                const hourOffset = hour - availWindow.hour_start;
-                                if (hourOffset < hoursAssigned) {
-                                    isAssigned = true;
-                                }
-                            }
-                        }
-                    });
+                    // Check if this specific hour is assigned
+                    const hourAssignment = dayAssignments.find(ha => ha.hour === hour);
+                    if (hourAssignment) {
+                        isAssigned = true;
+                    }
                     
                     if (isAssigned) {
                         cellClass += ' assigned';
@@ -810,6 +828,12 @@ let assignmentDragEndDay = null;
 let assignmentDragEndHour = null;
 let assignmentDragMode = null; // 'assign' or 'unassign'
 
+// Assignment click vs drag detection
+let assignmentMouseDownTime = 0;
+let assignmentDragTimeout = null;
+let assignmentHasMoved = false;
+let assignmentCurrentTarget = null;
+
 // Start assignment drag
 function startAssignmentDrag(event, employeeId, dayOfWeek, hour, username) {
     event.preventDefault();
@@ -820,21 +844,42 @@ function startAssignmentDrag(event, employeeId, dayOfWeek, hour, username) {
         return; // Don't start drag on unavailable cells
     }
     
-    isAssignmentDragging = true;
+    // Smart click vs drag detection
+    assignmentMouseDownTime = Date.now();
+    assignmentHasMoved = false;
+    assignmentCurrentTarget = event.target;
+    
+    // Store drag parameters for potential drag operation
     assignmentDragEmployee = employeeId;
     assignmentDragStartDay = dayOfWeek;
     assignmentDragStartHour = hour;
     assignmentDragEndDay = dayOfWeek;
     assignmentDragEndHour = hour;
-    
-    // Determine mode based on current state
     assignmentDragMode = cell.classList.contains('assigned') ? 'unassign' : 'assign';
     
-    console.log(`Started assignment drag: ${assignmentDragMode} for employee ${employeeId} at day ${dayOfWeek}, hour ${hour}`);
+    // Set timeout to detect if this is a click or drag
+    assignmentDragTimeout = setTimeout(() => {
+        if (!assignmentHasMoved) {
+            actuallyStartAssignmentDragMode(employeeId, dayOfWeek, hour);
+        }
+    }, 150);
+    
+    console.log(`Assignment mouse down: employee ${employeeId} at day ${dayOfWeek}, hour ${hour}`);
 }
 
 // Handle assignment drag
 function handleAssignmentDrag(event, employeeId, dayOfWeek, hour) {
+    // Detect mouse movement for click vs drag differentiation
+    if (assignmentMouseDownTime > 0 && !assignmentHasMoved) {
+        assignmentHasMoved = true;
+        if (assignmentDragTimeout) {
+            clearTimeout(assignmentDragTimeout);
+            assignmentDragTimeout = null;
+        }
+        // Start drag mode immediately since mouse moved
+        actuallyStartAssignmentDragMode(assignmentDragEmployee, assignmentDragStartDay, assignmentDragStartHour);
+    }
+    
     if (!isAssignmentDragging || employeeId !== assignmentDragEmployee) return;
     
     assignmentDragEndDay = dayOfWeek;
@@ -860,8 +905,42 @@ function handleAssignmentDrag(event, employeeId, dayOfWeek, hour) {
     }
 }
 
+// Actually start assignment drag mode (called after timeout or mouse movement)
+function actuallyStartAssignmentDragMode(employeeId, dayOfWeek, hour) {
+    console.log(`Actually starting assignment drag: mode ${assignmentDragMode} for employee ${employeeId} at day ${dayOfWeek}, hour ${hour}`);
+    isAssignmentDragging = true;
+}
+
 // End assignment drag
 async function endAssignmentDrag(event) {
+    // Handle click vs drag detection
+    const timeDiff = Date.now() - assignmentMouseDownTime;
+    const isQuickClick = timeDiff < 200 && !assignmentHasMoved;
+    
+    // Clear timeout if it exists
+    if (assignmentDragTimeout) {
+        clearTimeout(assignmentDragTimeout);
+        assignmentDragTimeout = null;
+    }
+    
+    // If this was a quick click, trigger single click
+    if (isQuickClick && assignmentCurrentTarget) {
+        console.log('Detected assignment click - triggering toggle');
+        const employeeId = parseInt(assignmentCurrentTarget.dataset.employee);
+        const dayOfWeek = parseInt(assignmentCurrentTarget.dataset.day);
+        const hour = parseInt(assignmentCurrentTarget.dataset.hour);
+        const username = assignmentCurrentTarget.dataset.username;
+        
+        // Reset click detection variables
+        assignmentMouseDownTime = 0;
+        assignmentHasMoved = false;
+        assignmentCurrentTarget = null;
+        
+        // Call the toggle function directly
+        await toggleHourAssignment(employeeId, dayOfWeek, hour, username);
+        return;
+    }
+    
     if (!isAssignmentDragging) return;
     
     console.log(`Ended assignment drag: ${assignmentDragMode} for employee ${assignmentDragEmployee} from hour ${assignmentDragStartHour} to ${assignmentDragEndHour}`);
@@ -891,20 +970,31 @@ async function endAssignmentDrag(event) {
             newTotalHours = Math.max(0, currentAssignedHours - hoursCount);
         }
         
-        // Make API call to update assignment
+        // Make API calls for each hour in the drag range
         try {
-            const response = await fetch('/api/assign-shift', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: assignmentDragEmployee,
-                    weekStartDate: currentWeekStart,
-                    dayOfWeek: assignmentDragStartDay,
-                    hoursAssigned: newTotalHours
-                })
-            });
+            const apiEndpoint = assignmentDragMode === 'assign' ? '/api/assign-hour' : '/api/unassign-hour';
+            const promises = [];
             
-            if (response.ok) {
+            // Create API call for each hour in the range
+            for (let h = minHour; h <= maxHour; h++) {
+                const promise = fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: assignmentDragEmployee,
+                        weekStartDate: currentWeekStart,
+                        dayOfWeek: assignmentDragStartDay,
+                        hour: h
+                    })
+                });
+                promises.push(promise);
+            }
+            
+            // Wait for all API calls to complete
+            const responses = await Promise.all(promises);
+            const allSuccessful = responses.every(response => response.ok);
+            
+            if (allSuccessful) {
                 // Update visual state
                 const previewCells = document.querySelectorAll('.assignment-drag-preview');
                 previewCells.forEach(cell => {
@@ -944,6 +1034,11 @@ async function endAssignmentDrag(event) {
     assignmentDragEndDay = null;
     assignmentDragEndHour = null;
     assignmentDragMode = null;
+    
+    // Reset click detection variables
+    assignmentMouseDownTime = 0;
+    assignmentHasMoved = false;
+    assignmentCurrentTarget = null;
 }
 
 // Toggle hourly assignment - fixed to track individual hours
@@ -952,7 +1047,15 @@ async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
     if (isAssignmentDragging) return;
     
     const statusElement = document.getElementById('assignment-status');
-    const cell = event.target;
+    
+    // Get the cell either from event.target or find it by data attributes
+    let cell = null;
+    if (typeof event !== 'undefined' && event.target) {
+        cell = event.target;
+    } else {
+        // Find the cell by data attributes when called from click detection
+        cell = document.querySelector(`[data-employee="${employeeId}"][data-day="${dayOfWeek}"][data-hour="${hour}"].assignment-drag-cell`);
+    }
     
     // Check if this hour is available
     if (cell.classList.contains('unavailable')) {
@@ -990,16 +1093,18 @@ async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
             assignedHours += 1; // Add the hour we're assigning
         }
         
-        console.log(`Updating ${username} ${days[dayOfWeek]} to ${assignedHours} hours`);
+        console.log(`Toggling ${username} ${days[dayOfWeek]} ${hour}:00 - ${isCurrentlyAssigned ? 'unassigning' : 'assigning'}`);
         
-        const response = await fetch('/api/assign-shift', {
+        // Use new hourly assignment API
+        const apiEndpoint = isCurrentlyAssigned ? '/api/unassign-hour' : '/api/assign-hour';
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 userId: employeeId,
                 weekStartDate: currentWeekStart,
                 dayOfWeek: dayOfWeek,
-                hoursAssigned: assignedHours
+                hour: hour
             })
         });
         
@@ -1098,99 +1203,89 @@ async function clearWeeklyAssignments() {
 }
 
 // Unified Calendar View
-async function loadCalendarView(isPersonalView = false) {
+async function loadCalendarView() {
     try {
         const grid = document.getElementById('calendar-grid');
         if (!grid) return;
         
-        // Update week status if it's the monitor view
-        if (!isPersonalView) {
-            const statusResponse = await fetch(`/api/week-status/${currentWeekStart}`);
-            const weekStatus = await statusResponse.json();
-            const statusDisplay = document.getElementById('week-status-display');
-            if (statusDisplay) {
-                statusDisplay.textContent = weekStatus.status === 'finalized' ? 'Finalized' : 'Draft';
-            }
+        // Update week status (useful for both managers and employees)
+        const statusResponse = await fetch(`/api/week-status/${currentWeekStart}`);
+        const weekStatus = await statusResponse.json();
+        const statusDisplay = document.getElementById('week-status-display');
+        if (statusDisplay) {
+            statusDisplay.textContent = weekStatus.status === 'finalized' ? 'Finalized' : 'Draft';
         }
         
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
         const hours = Array.from({length: 16}, (_, i) => i + 8); // 8 AM to 11 PM
         
-        // Get data
-        const [shiftsRes, usersRes, availabilityRes] = await Promise.all([
-            fetch(`/api/shifts/${currentWeekStart}`),
+        // Get data with error handling
+        const [hourlyAssignmentsRes, usersRes, availabilityRes] = await Promise.all([
+            fetch(`/api/hourly-assignments/${currentWeekStart}`),
             fetch('/api/users'),
             fetch(`/api/all-availability/${currentWeekStart}`)
         ]);
         
-        const shifts = await shiftsRes.json();
+        // Check for API errors
+        if (!hourlyAssignmentsRes.ok) {
+            console.error('Failed to fetch hourly assignments:', hourlyAssignmentsRes.status);
+            throw new Error(`Failed to fetch hourly assignments: ${hourlyAssignmentsRes.status}`);
+        }
+        if (!usersRes.ok) {
+            console.error('Failed to fetch users:', usersRes.status);
+            throw new Error(`Failed to fetch users: ${usersRes.status}`);
+        }
+        if (!availabilityRes.ok) {
+            console.error('Failed to fetch availability:', availabilityRes.status);
+            throw new Error(`Failed to fetch availability: ${availabilityRes.status}`);
+        }
+        
+        const hourlyAssignments = await hourlyAssignmentsRes.json();
         const users = await usersRes.json();
         const availability = await availabilityRes.json();
-        let employees;
         
-        if (isPersonalView) {
-            // Personal view - only current user
-            employees = users.filter(u => u.id === currentUser.id);
-            console.log('Personal view - current user:', currentUser);
-            console.log('Filtered employees:', employees);
-            console.log('Available shifts:', shifts.filter(s => s.user_id === currentUser.id));
-        } else {
-            // Manager view - all employees
-            employees = users.filter(u => u.role === 'employee');
-        }
-        
-        // Build calendar header
-        let html = '<div class="grid-header time-header">Employee</div>';
-        days.forEach(day => {
-            html += `<div class="grid-header day-header" style="grid-column: span 16;">${day}</div>`;
+        console.log('Successfully loaded data:', {
+            assignments: hourlyAssignments.length,
+            users: users.length,
+            availability: availability.length
         });
         
-        // Time slot headers
-        html += '<div class="grid-header time-header">Time</div>';
-        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-            hours.forEach(hour => {
-                html += `<div class="time-slot-header">${hour}:00</div>`;
-            });
-        }
+        // Show all employees for both manager and employee views
+        const employees = users.filter(u => u.role === 'employee');
         
-        // Employee rows
-        employees.forEach(employee => {
-            html += `<div class="employee-label">${employee.username}</div>`;
+        // Build vertical calendar layout - one section per day
+        let html = '';
+        
+        days.forEach((dayName, dayIndex) => {
+            html += `<div class="day-schedule">`;
+            html += `<div class="day-schedule-header">${dayName}</div>`;
+            html += `<div class="day-grid">`;
             
-            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-                // Get availability and shifts for this employee/day
-                const dayAvailability = availability.filter(a => 
-                    a.user_id === employee.id && a.day_of_week === dayIndex
-                );
-                const dayShifts = shifts.filter(s => 
-                    s.user_id === employee.id && s.day_of_week === dayIndex
+            // Employee name header
+            html += `<div class="employee-name-cell">Employee</div>`;
+            
+            // Time headers for this day
+            hours.forEach(hour => {
+                html += `<div class="day-time-header">${hour}:00</div>`;
+            });
+            
+            // Employee rows for this day
+            employees.forEach(employee => {
+                html += `<div class="employee-name-cell">${employee.username}</div>`;
+                
+                // Get assignments for this employee/day
+                const dayAssignments = hourlyAssignments.filter(ha => 
+                    ha.user_id === employee.id && ha.day_of_week === dayIndex
                 );
                 
+                // Hour cells for this employee/day
                 hours.forEach(hour => {
-                    let cellClass = 'grid-cell time-slot calendar-cell';
+                    let cellClass = 'calendar-cell';
                     let cellContent = '';
-                    let isAssigned = false;
                     
-                    // Check if this hour is assigned - using same logic as assignment grid
-                    dayShifts.forEach(shift => {
-                        const hoursAssigned = parseFloat(shift.hours_assigned || 0);
-                        if (hoursAssigned > 0) {
-                            // Find the available window for this employee/day
-                            const availWindow = dayAvailability.find(avail => 
-                                hour >= avail.hour_start && hour < avail.hour_end
-                            );
-                            if (availWindow) {
-                                // Calculate if this hour falls within assigned hours
-                                // Assign hours starting from the beginning of availability window
-                                const hourOffset = hour - availWindow.hour_start;
-                                if (hourOffset < hoursAssigned) {
-                                    isAssigned = true;
-                                }
-                            }
-                        }
-                    });
-                    
-                    if (isAssigned) {
+                    // Check if this specific hour is assigned
+                    const hourAssignment = dayAssignments.find(ha => ha.hour === hour);
+                    if (hourAssignment) {
                         cellClass += ' assigned';
                         cellContent = '●';
                     } else {
@@ -1199,17 +1294,18 @@ async function loadCalendarView(isPersonalView = false) {
                     }
                     
                     html += `<div class="${cellClass}" 
-                            title="${employee.username} - ${days[dayIndex]} ${hour}:00">${cellContent}</div>`;
+                            title="${employee.username} - ${dayName} ${hour}:00">${cellContent}</div>`;
                 });
-            }
+            });
+            
+            html += `</div>`; // Close day-grid
+            html += `</div>`; // Close day-schedule
         });
         
         grid.innerHTML = html;
         
-        // Show total hours summary below calendar
-        if (!isPersonalView) {
-            showWeeklySummary(shifts, employees);
-        }
+        // Show total hours summary below calendar (useful for both managers and employees)
+        showWeeklySummary(hourlyAssignments, employees);
         
     } catch (error) {
         console.error('Error loading calendar view:', error);
@@ -1217,24 +1313,28 @@ async function loadCalendarView(isPersonalView = false) {
 }
 
 // Show weekly summary table
-function showWeeklySummary(shifts, employees) {
+function showWeeklySummary(hourlyAssignments, employees) {
     const summaryContainer = document.getElementById('schedule-summary-content');
     if (!summaryContainer) return;
     
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     
-    // Group shifts by employee
-    const shiftsByEmployee = {};
-    shifts.forEach(shift => {
-        if (!shiftsByEmployee[shift.user_id]) {
-            shiftsByEmployee[shift.user_id] = {
-                username: shift.username,
-                shifts: [],
-                totalHours: 0
-            };
+    // Count hours by employee and day
+    const assignmentsByEmployee = {};
+    employees.forEach(employee => {
+        assignmentsByEmployee[employee.id] = {
+            username: employee.username,
+            dailyHours: new Array(7).fill(0), // Initialize 7 days with 0 hours
+            totalHours: 0
+        };
+    });
+    
+    // Count hourly assignments
+    hourlyAssignments.forEach(assignment => {
+        if (assignmentsByEmployee[assignment.user_id]) {
+            assignmentsByEmployee[assignment.user_id].dailyHours[assignment.day_of_week]++;
+            assignmentsByEmployee[assignment.user_id].totalHours++;
         }
-        shiftsByEmployee[shift.user_id].shifts.push(shift);
-        shiftsByEmployee[shift.user_id].totalHours += parseFloat(shift.hours_assigned || 0);
     });
     
     let html = `
@@ -1250,15 +1350,11 @@ function showWeeklySummary(shifts, employees) {
     `;
     
     employees.forEach(employee => {
-        const employeeData = shiftsByEmployee[employee.id];
+        const employeeData = assignmentsByEmployee[employee.id];
         html += `<tr><td><strong>${employee.username}</strong></td>`;
         
         for (let day = 0; day < 7; day++) {
-            let dayHours = 0;
-            if (employeeData) {
-                const dayShift = employeeData.shifts.find(s => s.day_of_week === day);
-                dayHours = dayShift ? parseFloat(dayShift.hours_assigned) : 0;
-            }
+            const dayHours = employeeData ? employeeData.dailyHours[day] : 0;
             html += `<td>${dayHours > 0 ? dayHours + 'h' : '-'}</td>`;
         }
         

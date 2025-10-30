@@ -521,46 +521,115 @@ body {
     font-weight: bold;
 }
 
-/* Calendar View */
-.calendar-grid {
+/* Calendar View - Vertical Days Layout */
+.calendar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.day-schedule {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.day-schedule-header {
+    background: #667eea;
+    color: white;
+    padding: 1rem;
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.day-grid {
     display: grid;
-    grid-template-columns: 120px repeat(112, 1fr); /* 1 employee column + 7 days × 16 hours */
+    grid-template-columns: 150px repeat(16, 1fr); /* Employee column + 16 hours (8AM-11PM) */
     gap: 1px;
     background: #e9ecef;
-    border-radius: 8px;
-    overflow: auto;
-    max-width: 100%;
+}
+
+.day-time-header {
+    background: #495057;
+    color: white;
+    padding: 0.95rem 0.25rem;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-orientation: mixed;
+}
+
+.employee-name-cell {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    font-weight: bold;
+    color: #495057;
+    border-right: 2px solid #dee2e6;
 }
 
 .calendar-cell {
-    min-height: 20px;
-    font-size: 0.8rem;
-    padding: 0.2rem;
+    min-height: 40px;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.25rem;
     text-align: center;
     border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
 }
 
 .calendar-cell.assigned {
     background: #28a745;
     color: white;
     font-weight: bold;
+    font-size: 1rem;
+}
+
+.calendar-cell.assigned:hover {
+    background: #218838;
+    transform: scale(1.05);
 }
 
 .calendar-cell.empty {
     background: white;
 }
 
+.calendar-cell.empty:hover {
+    background: #f8f9fa;
+}
+
 /* Responsive Calendar */
 @media (max-width: 768px) {
-    .hourly-grid,
-    .calendar-grid {
+    .hourly-grid {
         grid-template-columns: 80px repeat(112, 1fr);
         font-size: 0.6rem;
     }
     
-    .time-slot-header,
-    .time-slot,
+    .day-grid {
+        grid-template-columns: 100px repeat(16, 1fr);
+    }
+    
+    .day-time-header {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.1rem;
+    }
+    
+    .employee-name-cell {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
     .calendar-cell {
+        min-height: 30px;
+        font-size: 0.8rem;
+        padding: 0.3rem 0.1rem;
+    }
+    
+    .time-slot-header,
+    .time-slot {
         min-height: 18px;
         padding: 0.1rem;
     }
@@ -568,6 +637,15 @@ body {
     .employee-label {
         padding: 0.25rem;
         font-size: 0.7rem;
+    }
+    
+    .calendar-container {
+        gap: 1rem;
+    }
+    
+    .day-schedule-header {
+        padding: 0.75rem;
+        font-size: 1rem;
     }
 }
 
