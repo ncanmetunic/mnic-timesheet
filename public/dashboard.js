@@ -300,7 +300,7 @@ async function saveAvailability() {
     }
 }
 
-// My Schedule for employees
+// My Schedule for employees - now uses unified calendar view
 async function showMySchedule() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
@@ -311,44 +311,20 @@ async function showMySchedule() {
                 <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
                 <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
             </div>
-            <div id="schedule-content">Loading...</div>
+            <div id="calendar-container">
+                <div class="schedule-grid calendar-grid" id="calendar-grid">
+                    <!-- Calendar will be populated by JavaScript -->
+                </div>
+            </div>
         </div>
     `;
     
-    await loadMySchedule();
+    await loadCalendarView(true); // true = personal view
 }
 
-// Load employee's schedule
+// Legacy function - now redirects to calendar view
 async function loadMySchedule() {
-    try {
-        const response = await fetch(`/api/shifts/${currentWeekStart}`);
-        const shifts = await response.json();
-        
-        const scheduleContent = document.getElementById('schedule-content');
-        
-        if (shifts.length === 0) {
-            scheduleContent.innerHTML = '<p>No shifts assigned for this week yet.</p>';
-            return;
-        }
-        
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        let html = '<table class="data-table"><thead><tr><th>Day</th><th>Hours Assigned</th></tr></thead><tbody>';
-        
-        let totalHours = 0;
-        days.forEach((day, index) => {
-            const dayShift = shifts.find(s => s.day_of_week === index);
-            const hours = dayShift ? dayShift.hours_assigned : 0;
-            totalHours += hours;
-            
-            html += `<tr><td>${day}</td><td>${hours} hours</td></tr>`;
-        });
-        
-        html += `</tbody><tfoot><tr><th>Total</th><th>${totalHours} hours</th></tr></tfoot></table>`;
-        scheduleContent.innerHTML = html;
-    } catch (error) {
-        console.error('Error loading schedule:', error);
-        document.getElementById('schedule-content').innerHTML = '<p>Error loading schedule.</p>';
-    }
+    await loadCalendarView(true);
 }
 
 // Manager functions would go here (availability review, shift assignment, etc.)
@@ -425,21 +401,14 @@ async function showShiftAssignment() {
                 <h3 id="current-week-display">Week of ${formatDate(currentWeekStart)}</h3>
                 <button class="nav-week-btn" onclick="changeWeek(1)">▶</button>
             </div>
-            <p>Click on available time slots to assign shifts. Green = Available, Yellow = Assigned, Red = Unavailable</p>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Selected Employee for Assignment:</label>
-                    <select id="employee-select">
-                        <option value="">Select an employee...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Hours to Assign:</label>
-                    <input type="number" id="hours-input" min="1" max="8" value="8" step="0.5">
-                </div>
+            <p><strong>Instructions:</strong> Click on green time slots to assign shifts. Each employee shows their available hours, and you can approve specific time ranges.</p>
+            <div class="assignment-legend">
+                <span class="legend-item available">🟢 Available</span>
+                <span class="legend-item assigned">🟡 Assigned</span>
+                <span class="legend-item unavailable">⚫ Unavailable</span>
             </div>
             <div id="assignment-grid-container">
-                <div class="schedule-grid" id="assignment-grid">
+                <div class="schedule-grid hourly-grid" id="assignment-grid">
                     <!-- Grid will be populated by JavaScript -->
                 </div>
             </div>
@@ -451,8 +420,7 @@ async function showShiftAssignment() {
         </div>
     `;
     
-    await loadEmployeeOptions();
-    await loadShiftAssignmentGrid();
+    await loadHourlyAssignmentGrid();
 }
 
 async function showScheduleMonitor() {
@@ -471,96 +439,20 @@ async function showScheduleMonitor() {
                     <div class="stat-label">Week Status</div>
                 </div>
             </div>
-            <div id="schedule-summary">
-                <h3>Weekly Schedule Summary</h3>
-                <div id="schedule-summary-content">Loading...</div>
+            <div id="calendar-container">
+                <div class="schedule-grid calendar-grid" id="calendar-grid">
+                    <!-- Calendar will be populated by JavaScript -->
+                </div>
             </div>
         </div>
     `;
     
-    await loadScheduleMonitor();
+    await loadCalendarView(false); // false = manager view (all employees)
 }
 
+// Legacy function - now redirects to calendar view
 async function loadScheduleMonitor() {
-    try {
-        // Get week status
-        const statusResponse = await fetch(`/api/week-status/${currentWeekStart}`);
-        const weekStatus = await statusResponse.json();
-        
-        document.getElementById('week-status-display').textContent = 
-            weekStatus.status === 'finalized' ? 'Finalized' : 'Draft';
-        
-        // Get all shifts for this week
-        const shiftsResponse = await fetch(`/api/shifts/${currentWeekStart}`);
-        const shifts = await shiftsResponse.json();
-        
-        // Get users for reference
-        const usersResponse = await fetch('/api/users');
-        const users = await usersResponse.json();
-        const employees = users.filter(u => u.role === 'employee');
-        
-        // Build summary table
-        const summaryContent = document.getElementById('schedule-summary-content');
-        
-        if (shifts.length === 0) {
-            summaryContent.innerHTML = '<p>No shifts assigned for this week yet.</p>';
-            return;
-        }
-        
-        // Group shifts by employee
-        const shiftsByEmployee = {};
-        shifts.forEach(shift => {
-            if (!shiftsByEmployee[shift.user_id]) {
-                shiftsByEmployee[shift.user_id] = {
-                    username: shift.username,
-                    shifts: [],
-                    totalHours: 0
-                };
-            }
-            shiftsByEmployee[shift.user_id].shifts.push(shift);
-            shiftsByEmployee[shift.user_id].totalHours += parseFloat(shift.hours_assigned || 0);
-        });
-        
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        
-        let html = `
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Employee</th>
-                        <th>Monday</th>
-                        <th>Tuesday</th>
-                        <th>Wednesday</th>
-                        <th>Thursday</th>
-                        <th>Friday</th>
-                        <th>Saturday</th>
-                        <th>Sunday</th>
-                        <th>Total Hours</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        Object.values(shiftsByEmployee).forEach(employeeData => {
-            html += `<tr><td><strong>${employeeData.username}</strong></td>`;
-            
-            for (let day = 0; day < 7; day++) {
-                const dayShift = employeeData.shifts.find(s => s.day_of_week === day);
-                const hours = dayShift ? parseFloat(dayShift.hours_assigned) : 0;
-                html += `<td>${hours > 0 ? hours + 'h' : '-'}</td>`;
-            }
-            
-            html += `<td><strong>${employeeData.totalHours}h</strong></td></tr>`;
-        });
-        
-        html += '</tbody></table>';
-        summaryContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading schedule monitor:', error);
-        document.getElementById('schedule-summary-content').innerHTML = 
-            '<p>Error loading schedule data.</p>';
-    }
+    await loadCalendarView(false);
 }
 
 function showMonthlyReports() {
@@ -584,17 +476,51 @@ function getWeekStartDate(date) {
 }
 
 function changeWeek(direction) {
-    const currentDate = new Date(currentWeekStart);
+    console.log(`Attempting to change week. Current: ${currentWeekStart}, Direction: ${direction}`);
+    
+    // Create a new date object to avoid mutation issues
+    const currentDate = new Date(currentWeekStart + 'T00:00:00');
+    console.log(`Parsed current date: ${currentDate.toISOString()}`);
+    
+    // Add/subtract 7 days
     currentDate.setDate(currentDate.getDate() + (direction * 7));
-    currentWeekStart = getWeekStartDate(currentDate);
+    console.log(`After adding ${direction * 7} days: ${currentDate.toISOString()}`);
+    
+    // Get the Monday of that week
+    const newWeekStart = getWeekStartDate(currentDate);
+    console.log(`New week start calculated: ${newWeekStart}`);
+    
+    // Limit future navigation to 8 weeks ahead
+    const today = new Date();
+    const maxFutureDate = new Date(today);
+    maxFutureDate.setDate(today.getDate() + (8 * 7)); // 8 weeks ahead
+    
+    const minPastDate = new Date(today);
+    minPastDate.setDate(today.getDate() - (52 * 7)); // 1 year back
+    
+    const targetDate = new Date(newWeekStart + 'T00:00:00');
+    
+    if (targetDate > maxFutureDate) {
+        console.log('Navigation blocked: Too far in the future');
+        alert('Cannot navigate more than 8 weeks into the future');
+        return;
+    }
+    
+    if (targetDate < minPastDate) {
+        console.log('Navigation blocked: Too far in the past');
+        alert('Cannot navigate more than 1 year into the past');
+        return;
+    }
+    
+    // Update the global variable
+    currentWeekStart = newWeekStart;
+    console.log(`Week successfully changed to: ${currentWeekStart}`);
     
     // Update week display
     const weekDisplay = document.getElementById('current-week-display');
     if (weekDisplay) {
         weekDisplay.textContent = `Week of ${formatDate(currentWeekStart)}`;
     }
-    
-    console.log(`Week changed to: ${currentWeekStart} (direction: ${direction})`); // Debug log
     
     // Reload current section data
     const activeSection = document.querySelector('.nav-btn.active');
@@ -607,11 +533,11 @@ function changeWeek(direction) {
                 loadAvailabilityReview();
             }
         } else if (sectionName.includes('schedule')) {
-            loadMySchedule();
+            loadCalendarView(true);
         } else if (sectionName.includes('assign')) {
-            loadShiftAssignmentGrid();
+            loadHourlyAssignmentGrid();
         } else if (sectionName.includes('monitor')) {
-            loadScheduleMonitor();
+            loadCalendarView(false);
         }
     }
 }
@@ -646,13 +572,13 @@ async function loadEmployeeOptions() {
     }
 }
 
-// Load shift assignment grid
-async function loadShiftAssignmentGrid() {
+// Load hourly assignment grid
+async function loadHourlyAssignmentGrid() {
     try {
         const grid = document.getElementById('assignment-grid');
         if (!grid) return;
         
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const hours = Array.from({length: 16}, (_, i) => i + 8); // 8 AM to 11 PM
         
         // Get all availability and existing shifts for this week
@@ -668,15 +594,25 @@ async function loadShiftAssignmentGrid() {
         const employees = users.filter(u => u.role === 'employee');
         
         // Build grid header
-        let html = '<div class="grid-header time-header">Time</div>';
+        let html = '<div class="grid-header time-header">Employee</div>';
         days.forEach(day => {
-            html += `<div class="grid-header">${day}</div>`;
+            html += `<div class="grid-header day-header" colspan="16">${day}</div>`;
         });
+        
+        // Add time headers for each day
+        html += '<div class="grid-header time-header">Time</div>';
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            hours.forEach(hour => {
+                html += `<div class="time-slot-header">${hour}:00</div>`;
+            });
+        }
         
         // Build grid body with employee rows
         employees.forEach(employee => {
+            // Employee name cell
             html += `<div class="employee-label">${employee.username}</div>`;
             
+            // Time slots for each day
             for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
                 // Get availability for this employee/day
                 const dayAvailability = availability.filter(a => 
@@ -688,90 +624,136 @@ async function loadShiftAssignmentGrid() {
                     s.user_id === employee.id && s.day_of_week === dayIndex
                 );
                 
-                // Create a cell for this employee/day combination
-                const isAvailable = dayAvailability.length > 0;
-                const isAssigned = dayShifts.length > 0;
-                const hoursAssigned = dayShifts.reduce((sum, s) => sum + parseFloat(s.hours_assigned || 0), 0);
-                
-                let cellClass = 'grid-cell assignment-cell';
-                let cellContent = '';
-                
-                if (isAssigned) {
-                    cellClass += ' assigned';
-                    cellContent = `${hoursAssigned}h`;
-                } else if (isAvailable) {
-                    cellClass += ' available';
-                    cellContent = 'Available';
-                } else {
-                    cellClass += ' unavailable';
-                    cellContent = 'N/A';
-                }
-                
-                html += `<div class="${cellClass}" 
-                        data-employee="${employee.id}" 
-                        data-day="${dayIndex}" 
-                        data-username="${employee.username}"
-                        onclick="assignShiftToEmployee(${employee.id}, ${dayIndex}, '${employee.username}')"
-                        title="${employee.username} - ${days[dayIndex]}">${cellContent}</div>`;
+                // For each hour slot
+                hours.forEach(hour => {
+                    let cellClass = 'grid-cell time-slot';
+                    let cellContent = '';
+                    let isAvailable = false;
+                    let isAssigned = false;
+                    
+                    // Check if this hour is within any availability window
+                    dayAvailability.forEach(avail => {
+                        if (hour >= avail.hour_start && hour < avail.hour_end) {
+                            isAvailable = true;
+                        }
+                    });
+                    
+                    // Check if this hour is assigned (we'll assume shifts are 8-hour blocks for now)
+                    dayShifts.forEach(shift => {
+                        // For simplicity, we'll show assigned status if there's any shift for this day
+                        if (parseFloat(shift.hours_assigned || 0) > 0) {
+                            isAssigned = true;
+                        }
+                    });
+                    
+                    if (isAssigned) {
+                        cellClass += ' assigned';
+                        cellContent = '✓';
+                    } else if (isAvailable) {
+                        cellClass += ' available';
+                        cellContent = '';
+                    } else {
+                        cellClass += ' unavailable';
+                        cellContent = '';
+                    }
+                    
+                    html += `<div class="${cellClass}" 
+                            data-employee="${employee.id}" 
+                            data-day="${dayIndex}" 
+                            data-hour="${hour}"
+                            data-username="${employee.username}"
+                            onclick="toggleHourAssignment(${employee.id}, ${dayIndex}, ${hour}, '${employee.username}')"
+                            title="${employee.username} - ${days[dayIndex]} ${hour}:00">${cellContent}</div>`;
+                });
             }
         });
         
         grid.innerHTML = html;
     } catch (error) {
-        console.error('Error loading shift assignment grid:', error);
+        console.error('Error loading hourly assignment grid:', error);
     }
 }
 
-// Assign shift to employee
-async function assignShiftToEmployee(employeeId, dayOfWeek, username) {
-    const hoursInput = document.getElementById('hours-input');
+// Toggle hourly assignment
+async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
     const statusElement = document.getElementById('assignment-status');
+    const cell = event.target;
     
-    if (!hoursInput || !hoursInput.value) {
-        statusElement.textContent = '❌ Please specify hours to assign';
+    // Check if this hour is available
+    if (cell.classList.contains('unavailable')) {
+        statusElement.textContent = `❌ ${username} is not available at ${hour}:00`;
         statusElement.style.color = 'red';
+        setTimeout(() => statusElement.textContent = '', 3000);
         return;
     }
     
-    const hours = parseFloat(hoursInput.value);
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const isCurrentlyAssigned = cell.classList.contains('assigned');
     
     try {
-        statusElement.textContent = 'Assigning shift...';
+        statusElement.textContent = isCurrentlyAssigned ? 'Removing assignment...' : 'Assigning hour...';
         statusElement.style.color = 'blue';
         
-        const response = await fetch('/api/assign-shift', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: employeeId,
-                weekStartDate: currentWeekStart,
-                dayOfWeek: dayOfWeek,
-                hoursAssigned: hours
-            })
-        });
-        
-        if (response.ok) {
-            statusElement.textContent = `✅ Assigned ${hours}h to ${username} on ${days[dayOfWeek]}`;
-            statusElement.style.color = 'green';
+        if (isCurrentlyAssigned) {
+            // Remove assignment (assign 0 hours)
+            const response = await fetch('/api/assign-shift', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: employeeId,
+                    weekStartDate: currentWeekStart,
+                    dayOfWeek: dayOfWeek,
+                    hoursAssigned: 0
+                })
+            });
             
-            // Reload the grid to show updated assignments
-            await loadShiftAssignmentGrid();
+            if (response.ok) {
+                statusElement.textContent = `✅ Removed assignment for ${username} on ${days[dayOfWeek]}`;
+                statusElement.style.color = 'green';
+                cell.classList.remove('assigned');
+                cell.classList.add('available');
+                cell.textContent = '';
+            }
         } else {
-            const error = await response.json();
-            statusElement.textContent = `❌ Error: ${error.error}`;
-            statusElement.style.color = 'red';
+            // Add assignment (1 hour)
+            const response = await fetch('/api/assign-shift', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: employeeId,
+                    weekStartDate: currentWeekStart,
+                    dayOfWeek: dayOfWeek,
+                    hoursAssigned: 1 // For now, assign 1 hour per click
+                })
+            });
+            
+            if (response.ok) {
+                statusElement.textContent = `✅ Assigned ${hour}:00-${hour+1}:00 to ${username} on ${days[dayOfWeek]}`;
+                statusElement.style.color = 'green';
+                cell.classList.remove('available');
+                cell.classList.add('assigned');
+                cell.textContent = '✓';
+            }
         }
     } catch (error) {
-        statusElement.textContent = '❌ Network error assigning shift';
+        statusElement.textContent = '❌ Network error';
         statusElement.style.color = 'red';
-        console.error('Error assigning shift:', error);
+        console.error('Error toggling assignment:', error);
     }
     
     // Clear status after 5 seconds
     setTimeout(() => {
         statusElement.textContent = '';
     }, 5000);
+}
+
+// Legacy function for backward compatibility
+async function assignShiftToEmployee(employeeId, dayOfWeek, username) {
+    // This function is kept for any legacy calls but redirects to hourly assignment
+    const statusElement = document.getElementById('assignment-status');
+    statusElement.textContent = 'Please use the hourly grid to assign specific time slots';
+    statusElement.style.color = 'orange';
+    setTimeout(() => statusElement.textContent = '', 3000);
 }
 
 // Finalize weekly schedule
@@ -826,4 +808,166 @@ async function clearWeeklyAssignments() {
         statusElement.style.color = 'red';
         console.error('Error clearing assignments:', error);
     }
+}
+
+// Unified Calendar View
+async function loadCalendarView(isPersonalView = false) {
+    try {
+        const grid = document.getElementById('calendar-grid');
+        if (!grid) return;
+        
+        // Update week status if it's the monitor view
+        if (!isPersonalView) {
+            const statusResponse = await fetch(`/api/week-status/${currentWeekStart}`);
+            const weekStatus = await statusResponse.json();
+            const statusDisplay = document.getElementById('week-status-display');
+            if (statusDisplay) {
+                statusDisplay.textContent = weekStatus.status === 'finalized' ? 'Finalized' : 'Draft';
+            }
+        }
+        
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const hours = Array.from({length: 16}, (_, i) => i + 8); // 8 AM to 11 PM
+        
+        // Get data
+        const [shiftsRes, usersRes] = await Promise.all([
+            fetch(`/api/shifts/${currentWeekStart}`),
+            fetch('/api/users')
+        ]);
+        
+        const shifts = await shiftsRes.json();
+        const users = await usersRes.json();
+        let employees;
+        
+        if (isPersonalView) {
+            // Personal view - only current user
+            employees = users.filter(u => u.id === currentUser.id);
+        } else {
+            // Manager view - all employees
+            employees = users.filter(u => u.role === 'employee');
+        }
+        
+        // Build calendar header
+        let html = '<div class="grid-header time-header">Employee</div>';
+        days.forEach(day => {
+            html += `<div class="grid-header day-header" style="grid-column: span 16;">${day}</div>`;
+        });
+        
+        // Time slot headers
+        html += '<div class="grid-header time-header">Time</div>';
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            hours.forEach(hour => {
+                html += `<div class="time-slot-header">${hour}:00</div>`;
+            });
+        }
+        
+        // Employee rows
+        employees.forEach(employee => {
+            html += `<div class="employee-label">${employee.username}</div>`;
+            
+            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                // Get shifts for this employee/day
+                const dayShifts = shifts.filter(s => 
+                    s.user_id === employee.id && s.day_of_week === dayIndex
+                );
+                
+                hours.forEach(hour => {
+                    let cellClass = 'grid-cell time-slot calendar-cell';
+                    let cellContent = '';
+                    
+                    // Check if this hour has an assigned shift
+                    const hasShift = dayShifts.some(shift => {
+                        // For now, if there's any shift on this day, show it assigned
+                        return parseFloat(shift.hours_assigned || 0) > 0;
+                    });
+                    
+                    if (hasShift) {
+                        cellClass += ' assigned';
+                        cellContent = '●';
+                    } else {
+                        cellClass += ' empty';
+                        cellContent = '';
+                    }
+                    
+                    html += `<div class="${cellClass}" 
+                            title="${employee.username} - ${days[dayIndex]} ${hour}:00">${cellContent}</div>`;
+                });
+            }
+        });
+        
+        grid.innerHTML = html;
+        
+        // Show total hours summary below calendar
+        if (!isPersonalView) {
+            showWeeklySummary(shifts, employees);
+        }
+        
+    } catch (error) {
+        console.error('Error loading calendar view:', error);
+    }
+}
+
+// Show weekly summary table
+function showWeeklySummary(shifts, employees) {
+    const summaryContainer = document.getElementById('schedule-summary-content');
+    if (!summaryContainer) return;
+    
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    // Group shifts by employee
+    const shiftsByEmployee = {};
+    shifts.forEach(shift => {
+        if (!shiftsByEmployee[shift.user_id]) {
+            shiftsByEmployee[shift.user_id] = {
+                username: shift.username,
+                shifts: [],
+                totalHours: 0
+            };
+        }
+        shiftsByEmployee[shift.user_id].shifts.push(shift);
+        shiftsByEmployee[shift.user_id].totalHours += parseFloat(shift.hours_assigned || 0);
+    });
+    
+    let html = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    employees.forEach(employee => {
+        const employeeData = shiftsByEmployee[employee.id];
+        html += `<tr><td><strong>${employee.username}</strong></td>`;
+        
+        for (let day = 0; day < 7; day++) {
+            let dayHours = 0;
+            if (employeeData) {
+                const dayShift = employeeData.shifts.find(s => s.day_of_week === day);
+                dayHours = dayShift ? parseFloat(dayShift.hours_assigned) : 0;
+            }
+            html += `<td>${dayHours > 0 ? dayHours + 'h' : '-'}</td>`;
+        }
+        
+        const totalHours = employeeData ? employeeData.totalHours : 0;
+        html += `<td><strong>${totalHours}h</strong></td></tr>`;
+    });
+    
+    html += '</tbody></table>';
+    
+    // Add summary container if it doesn't exist
+    let summaryDiv = document.getElementById('schedule-summary');
+    if (!summaryDiv) {
+        const container = document.querySelector('.content-section');
+        summaryDiv = document.createElement('div');
+        summaryDiv.id = 'schedule-summary';
+        summaryDiv.innerHTML = '<h3>Weekly Hours Summary</h3><div id="schedule-summary-content"></div>';
+        container.appendChild(summaryDiv);
+    }
+    
+    document.getElementById('schedule-summary-content').innerHTML = html;
 }
