@@ -369,6 +369,36 @@ body {
     border-color: #28a745;
 }
 
+/* Drag Selection */
+.grid-cell.drag-preview {
+    border: 2px solid #007bff !important;
+    border-radius: 3px;
+    transform: scale(0.95);
+    transition: none;
+}
+
+.availability-cell {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.assignment-drag-cell {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.assignment-drag-preview {
+    border: 2px solid #ff6b6b !important;
+    border-radius: 3px;
+    transform: scale(0.95);
+    transition: none;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
 .grid-cell.unavailable {
     background: #f8d7da;
     color: #721c24;

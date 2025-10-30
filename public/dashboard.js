@@ -216,7 +216,13 @@ async function loadAvailabilityGrid() {
     hours.forEach(hour => {
         html += `<div class="time-header">${hour}:00-${hour+1}:00</div>`;
         for (let day = 0; day < 7; day++) {
-            html += `<div class="grid-cell" data-day="${day}" data-hour="${hour}" onclick="toggleAvailability(${day}, ${hour})"></div>`;
+            html += `<div class="grid-cell availability-cell" 
+                    data-day="${day}" 
+                    data-hour="${hour}" 
+                    onclick="toggleAvailability(${day}, ${hour})"
+                    onmousedown="startDragSelection(event, ${day}, ${hour})"
+                    onmouseover="handleDragSelection(event, ${day}, ${hour})"
+                    onmouseup="endDragSelection(event)"></div>`;
         }
     });
     
@@ -243,6 +249,9 @@ async function loadAvailabilityGrid() {
 
 // Toggle availability cell
 function toggleAvailability(day, hour) {
+    // Don't trigger toggle if we're in the middle of a drag operation
+    if (isDragging) return;
+    
     const cell = event.target;
     if (cell.classList.contains('selected')) {
         cell.classList.remove('selected');
@@ -252,6 +261,105 @@ function toggleAvailability(day, hour) {
         cell.textContent = '✓';
     }
 }
+
+// Drag selection variables
+let isDragging = false;
+let dragStartDay = null;
+let dragStartHour = null;
+let dragEndDay = null;
+let dragEndHour = null;
+let dragSelectionMode = null; // 'select' or 'deselect'
+
+// Start drag selection
+function startDragSelection(event, day, hour) {
+    // Prevent default click behavior during drag
+    event.preventDefault();
+    
+    isDragging = true;
+    dragStartDay = day;
+    dragStartHour = hour;
+    dragEndDay = day;
+    dragEndHour = hour;
+    
+    // Determine if we're selecting or deselecting based on current cell state
+    const cell = event.target;
+    dragSelectionMode = cell.classList.contains('selected') ? 'deselect' : 'select';
+    
+    // Apply selection to starting cell
+    if (dragSelectionMode === 'select') {
+        cell.classList.add('selected', 'drag-preview');
+        cell.textContent = '✓';
+    } else {
+        cell.classList.remove('selected');
+        cell.classList.add('drag-preview');
+        cell.textContent = '';
+    }
+    
+    console.log(`Started drag selection: ${dragSelectionMode} at day ${day}, hour ${hour}`);
+}
+
+// Handle drag selection
+function handleDragSelection(event, day, hour) {
+    if (!isDragging) return;
+    
+    dragEndDay = day;
+    dragEndHour = hour;
+    
+    // Clear previous preview
+    document.querySelectorAll('.drag-preview').forEach(cell => {
+        cell.classList.remove('drag-preview');
+    });
+    
+    // Calculate selection rectangle
+    const minDay = Math.min(dragStartDay, dragEndDay);
+    const maxDay = Math.max(dragStartDay, dragEndDay);
+    const minHour = Math.min(dragStartHour, dragEndHour);
+    const maxHour = Math.max(dragStartHour, dragEndHour);
+    
+    // Apply preview to all cells in rectangle
+    for (let d = minDay; d <= maxDay; d++) {
+        for (let h = minHour; h <= maxHour; h++) {
+            const cell = document.querySelector(`[data-day="${d}"][data-hour="${h}"].availability-cell`);
+            if (cell) {
+                cell.classList.add('drag-preview');
+                if (dragSelectionMode === 'select') {
+                    cell.classList.add('selected');
+                    cell.textContent = '✓';
+                } else {
+                    cell.classList.remove('selected');
+                    cell.textContent = '';
+                }
+            }
+        }
+    }
+}
+
+// End drag selection
+function endDragSelection(event) {
+    if (!isDragging) return;
+    
+    console.log(`Ended drag selection: ${dragSelectionMode} from day ${dragStartDay}, hour ${dragStartHour} to day ${dragEndDay}, hour ${dragEndHour}`);
+    
+    // Remove preview classes
+    document.querySelectorAll('.drag-preview').forEach(cell => {
+        cell.classList.remove('drag-preview');
+    });
+    
+    // Reset drag state
+    isDragging = false;
+    dragStartDay = null;
+    dragStartHour = null;
+    dragEndDay = null;
+    dragEndHour = null;
+    dragSelectionMode = null;
+}
+
+// Prevent text selection during drag
+document.addEventListener('selectstart', function(e) {
+    if (isDragging) {
+        e.preventDefault();
+    }
+});
 
 // Save availability
 async function saveAvailability() {
@@ -490,19 +598,24 @@ function changeWeek(direction) {
     const newWeekStart = getWeekStartDate(currentDate);
     console.log(`New week start calculated: ${newWeekStart}`);
     
-    // Limit future navigation to 8 weeks ahead
+    // Limit future navigation to 12 weeks ahead (more generous for testing)
     const today = new Date();
     const maxFutureDate = new Date(today);
-    maxFutureDate.setDate(today.getDate() + (8 * 7)); // 8 weeks ahead
+    maxFutureDate.setDate(today.getDate() + (12 * 7)); // 12 weeks ahead
     
     const minPastDate = new Date(today);
     minPastDate.setDate(today.getDate() - (52 * 7)); // 1 year back
     
     const targetDate = new Date(newWeekStart + 'T00:00:00');
     
+    console.log(`Navigation check - Today: ${today.toISOString()}`);
+    console.log(`Max future allowed: ${maxFutureDate.toISOString()}`);
+    console.log(`Target date: ${targetDate.toISOString()}`);
+    console.log(`Is target > max? ${targetDate > maxFutureDate}`);
+    
     if (targetDate > maxFutureDate) {
         console.log('Navigation blocked: Too far in the future');
-        alert('Cannot navigate more than 8 weeks into the future');
+        alert(`Cannot navigate more than 12 weeks into the future. Target: ${formatDate(newWeekStart)}, Max: ${formatDate(maxFutureDate.toISOString().split('T')[0])}`);
         return;
     }
     
@@ -668,12 +781,15 @@ async function loadHourlyAssignmentGrid() {
                         cellContent = '';
                     }
                     
-                    html += `<div class="${cellClass}" 
+                    html += `<div class="${cellClass} assignment-drag-cell" 
                             data-employee="${employee.id}" 
                             data-day="${dayIndex}" 
                             data-hour="${hour}"
                             data-username="${employee.username}"
                             onclick="toggleHourAssignment(${employee.id}, ${dayIndex}, ${hour}, '${employee.username}')"
+                            onmousedown="startAssignmentDrag(event, ${employee.id}, ${dayIndex}, ${hour}, '${employee.username}')"
+                            onmouseover="handleAssignmentDrag(event, ${employee.id}, ${dayIndex}, ${hour})"
+                            onmouseup="endAssignmentDrag(event)"
                             title="${employee.username} - ${days[dayIndex]} ${hour}:00">${cellContent}</div>`;
                 });
             }
@@ -685,8 +801,156 @@ async function loadHourlyAssignmentGrid() {
     }
 }
 
+// Assignment drag selection variables
+let isAssignmentDragging = false;
+let assignmentDragEmployee = null;
+let assignmentDragStartDay = null;
+let assignmentDragStartHour = null;
+let assignmentDragEndDay = null;
+let assignmentDragEndHour = null;
+let assignmentDragMode = null; // 'assign' or 'unassign'
+
+// Start assignment drag
+function startAssignmentDrag(event, employeeId, dayOfWeek, hour, username) {
+    event.preventDefault();
+    
+    // Check if this hour is unavailable
+    const cell = event.target;
+    if (cell.classList.contains('unavailable')) {
+        return; // Don't start drag on unavailable cells
+    }
+    
+    isAssignmentDragging = true;
+    assignmentDragEmployee = employeeId;
+    assignmentDragStartDay = dayOfWeek;
+    assignmentDragStartHour = hour;
+    assignmentDragEndDay = dayOfWeek;
+    assignmentDragEndHour = hour;
+    
+    // Determine mode based on current state
+    assignmentDragMode = cell.classList.contains('assigned') ? 'unassign' : 'assign';
+    
+    console.log(`Started assignment drag: ${assignmentDragMode} for employee ${employeeId} at day ${dayOfWeek}, hour ${hour}`);
+}
+
+// Handle assignment drag
+function handleAssignmentDrag(event, employeeId, dayOfWeek, hour) {
+    if (!isAssignmentDragging || employeeId !== assignmentDragEmployee) return;
+    
+    assignmentDragEndDay = dayOfWeek;
+    assignmentDragEndHour = hour;
+    
+    // Clear previous preview
+    document.querySelectorAll('.assignment-drag-preview').forEach(cell => {
+        cell.classList.remove('assignment-drag-preview');
+    });
+    
+    // Only allow drag within same day for assignments (to keep it simple)
+    if (dayOfWeek === assignmentDragStartDay) {
+        const minHour = Math.min(assignmentDragStartHour, assignmentDragEndHour);
+        const maxHour = Math.max(assignmentDragStartHour, assignmentDragEndHour);
+        
+        // Apply preview to all hours in range for this employee/day
+        for (let h = minHour; h <= maxHour; h++) {
+            const cell = document.querySelector(`[data-employee="${employeeId}"][data-day="${dayOfWeek}"][data-hour="${h}"].assignment-drag-cell`);
+            if (cell && !cell.classList.contains('unavailable')) {
+                cell.classList.add('assignment-drag-preview');
+            }
+        }
+    }
+}
+
+// End assignment drag
+async function endAssignmentDrag(event) {
+    if (!isAssignmentDragging) return;
+    
+    console.log(`Ended assignment drag: ${assignmentDragMode} for employee ${assignmentDragEmployee} from hour ${assignmentDragStartHour} to ${assignmentDragEndHour}`);
+    
+    // Only process if drag ended on same day
+    if (assignmentDragEndDay === assignmentDragStartDay) {
+        const minHour = Math.min(assignmentDragStartHour, assignmentDragEndHour);
+        const maxHour = Math.max(assignmentDragStartHour, assignmentDragEndHour);
+        const hoursCount = maxHour - minHour + 1;
+        
+        // Calculate new total hours for this day
+        const allCellsForDay = document.querySelectorAll(
+            `[data-employee="${assignmentDragEmployee}"][data-day="${assignmentDragStartDay}"].time-slot`
+        );
+        
+        let currentAssignedHours = 0;
+        allCellsForDay.forEach(dayCell => {
+            if (dayCell.classList.contains('assigned') && !dayCell.classList.contains('assignment-drag-preview')) {
+                currentAssignedHours += 1;
+            }
+        });
+        
+        let newTotalHours;
+        if (assignmentDragMode === 'assign') {
+            newTotalHours = currentAssignedHours + hoursCount;
+        } else {
+            newTotalHours = Math.max(0, currentAssignedHours - hoursCount);
+        }
+        
+        // Make API call to update assignment
+        try {
+            const response = await fetch('/api/assign-shift', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: assignmentDragEmployee,
+                    weekStartDate: currentWeekStart,
+                    dayOfWeek: assignmentDragStartDay,
+                    hoursAssigned: newTotalHours
+                })
+            });
+            
+            if (response.ok) {
+                // Update visual state
+                const previewCells = document.querySelectorAll('.assignment-drag-preview');
+                previewCells.forEach(cell => {
+                    if (assignmentDragMode === 'assign') {
+                        cell.classList.add('assigned');
+                        cell.classList.remove('available');
+                        cell.textContent = '✓';
+                    } else {
+                        cell.classList.remove('assigned');
+                        cell.classList.add('available');
+                        cell.textContent = '';
+                    }
+                });
+                
+                const statusElement = document.getElementById('assignment-status');
+                if (statusElement) {
+                    statusElement.textContent = `✅ ${assignmentDragMode === 'assign' ? 'Assigned' : 'Removed'} ${hoursCount} hour(s)`;
+                    statusElement.style.color = 'green';
+                    setTimeout(() => statusElement.textContent = '', 3000);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating assignment:', error);
+        }
+    }
+    
+    // Clean up
+    document.querySelectorAll('.assignment-drag-preview').forEach(cell => {
+        cell.classList.remove('assignment-drag-preview');
+    });
+    
+    // Reset state
+    isAssignmentDragging = false;
+    assignmentDragEmployee = null;
+    assignmentDragStartDay = null;
+    assignmentDragStartHour = null;
+    assignmentDragEndDay = null;
+    assignmentDragEndHour = null;
+    assignmentDragMode = null;
+}
+
 // Toggle hourly assignment - fixed to track individual hours
 async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
+    // Don't trigger toggle if we're in the middle of a drag operation
+    if (isAssignmentDragging) return;
+    
     const statusElement = document.getElementById('assignment-status');
     const cell = event.target;
     
@@ -853,18 +1117,23 @@ async function loadCalendarView(isPersonalView = false) {
         const hours = Array.from({length: 16}, (_, i) => i + 8); // 8 AM to 11 PM
         
         // Get data
-        const [shiftsRes, usersRes] = await Promise.all([
+        const [shiftsRes, usersRes, availabilityRes] = await Promise.all([
             fetch(`/api/shifts/${currentWeekStart}`),
-            fetch('/api/users')
+            fetch('/api/users'),
+            fetch(`/api/all-availability/${currentWeekStart}`)
         ]);
         
         const shifts = await shiftsRes.json();
         const users = await usersRes.json();
+        const availability = await availabilityRes.json();
         let employees;
         
         if (isPersonalView) {
             // Personal view - only current user
             employees = users.filter(u => u.id === currentUser.id);
+            console.log('Personal view - current user:', currentUser);
+            console.log('Filtered employees:', employees);
+            console.log('Available shifts:', shifts.filter(s => s.user_id === currentUser.id));
         } else {
             // Manager view - all employees
             employees = users.filter(u => u.role === 'employee');
@@ -889,7 +1158,10 @@ async function loadCalendarView(isPersonalView = false) {
             html += `<div class="employee-label">${employee.username}</div>`;
             
             for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-                // Get shifts for this employee/day
+                // Get availability and shifts for this employee/day
+                const dayAvailability = availability.filter(a => 
+                    a.user_id === employee.id && a.day_of_week === dayIndex
+                );
                 const dayShifts = shifts.filter(s => 
                     s.user_id === employee.id && s.day_of_week === dayIndex
                 );
@@ -897,14 +1169,28 @@ async function loadCalendarView(isPersonalView = false) {
                 hours.forEach(hour => {
                     let cellClass = 'grid-cell time-slot calendar-cell';
                     let cellContent = '';
+                    let isAssigned = false;
                     
-                    // Check if this hour has an assigned shift
-                    const hasShift = dayShifts.some(shift => {
-                        // For now, if there's any shift on this day, show it assigned
-                        return parseFloat(shift.hours_assigned || 0) > 0;
+                    // Check if this hour is assigned - using same logic as assignment grid
+                    dayShifts.forEach(shift => {
+                        const hoursAssigned = parseFloat(shift.hours_assigned || 0);
+                        if (hoursAssigned > 0) {
+                            // Find the available window for this employee/day
+                            const availWindow = dayAvailability.find(avail => 
+                                hour >= avail.hour_start && hour < avail.hour_end
+                            );
+                            if (availWindow) {
+                                // Calculate if this hour falls within assigned hours
+                                // Assign hours starting from the beginning of availability window
+                                const hourOffset = hour - availWindow.hour_start;
+                                if (hourOffset < hoursAssigned) {
+                                    isAssigned = true;
+                                }
+                            }
+                        }
                     });
                     
-                    if (hasShift) {
+                    if (isAssigned) {
                         cellClass += ' assigned';
                         cellContent = '●';
                     } else {
