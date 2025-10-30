@@ -1,0 +1,909 @@
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+/* Login Page Styles */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-header {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.login-header h1 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: #666;
+}
+
+.info-box {
+    background: #e8f4fd;
+    padding: 1rem;
+    width: 100%;
+    max-width: 400px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    border-left: 4px solid #667eea;
+}
+
+.auth-toggle {
+    display: flex;
+    background: white;
+    border-radius: 0;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 1rem;
+    background: #f8f9fa;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #6c757d;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.tab-btn.active {
+    background: white;
+    color: #667eea;
+    border-bottom: 2px solid #667eea;
+}
+
+.login-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 400px;
+    margin-top: 0;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background: white;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+}
+
+.login-btn,
+.btn-primary {
+    width: 100%;
+    padding: 0.75rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.login-btn:hover,
+.btn-primary:hover {
+    background: #5a6fd8;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    margin-right: 0.5rem;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.message {
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 5px;
+    font-weight: bold;
+    width: 100%;
+    max-width: 400px;
+}
+
+.message.error {
+    color: #e74c3c;
+    background: #ffeaea;
+    border: 1px solid #f5c6cb;
+}
+
+.message.success {
+    color: #155724;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+/* Dashboard Styles */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background: white;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.role-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.role-admin { background: #ff6b6b; color: white; }
+.role-employee { background: #45b7d1; color: white; }
+
+.navigation {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.nav-btn {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border: 2px solid #667eea;
+    color: #667eea;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.nav-btn:hover,
+.nav-btn.active {
+    background: #667eea;
+    color: white;
+}
+
+.content-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.content-section h2 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 0.5rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.calculated-hours {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 1rem;
+    text-align: center;
+    min-height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.data-table th {
+    background: #f8f9fa;
+    font-weight: bold;
+    color: #495057;
+}
+
+.data-table tr:hover {
+    background: #f5f5f5;
+}
+
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-label {
+    color: #666;
+    margin-top: 0.5rem;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-approved {
+    background: #d4edda;
+    color: #155724;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-rejected {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 10px;
+    }
+    
+    .header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .navigation {
+        flex-direction: column;
+    }
+    
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hidden { display: none !important; }
+.text-center { text-align: center; }
+.mt-1 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 1rem; }
+
+/* Calendar Styles */
+.calendar-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.nav-calendar-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.nav-calendar-btn:hover {
+    background: #5a6fd8;
+}
+
+.calendar-navigation h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.4rem;
+}
+
+.calendar-container {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.calendar-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #667eea;
+}
+
+.calendar-day-header {
+    padding: 1rem;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.calendar-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e9ecef;
+}
+
+.calendar-day {
+    background: white;
+    min-height: 80px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: background 0.3s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.calendar-day:hover {
+    background: #f8f9fa;
+}
+
+.calendar-day.empty {
+    background: #f8f9fa;
+    cursor: default;
+}
+
+.calendar-day.today {
+    background: #e3f2fd;
+    border: 2px solid #667eea;
+}
+
+.calendar-day.has-entry {
+    background: #e8f5e8;
+    border-left: 4px solid #28a745;
+}
+
+.calendar-day.today.has-entry {
+    background: #e1f5fe;
+    border: 2px solid #667eea;
+    border-left: 4px solid #28a745;
+}
+
+.day-number {
+    font-weight: bold;
+    color: #333;
+    align-self: flex-start;
+}
+
+.entry-indicator {
+    background: #28a745;
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-align: center;
+    align-self: flex-end;
+}
+
+.timesheet-form-container {
+    background: #f8f9fa;
+    padding: 2rem;
+    border-radius: 8px;
+    margin-top: 2rem;
+    border: 2px solid #667eea;
+}
+
+.timesheet-form-container h3 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.form-actions .btn-primary,
+.form-actions .btn-secondary {
+    width: auto;
+    padding: 0.75rem 2rem;
+}
+
+/* Calendar responsive design */
+@media (max-width: 768px) {
+    .calendar-day {
+        min-height: 60px;
+        padding: 0.3rem;
+    }
+    
+    .calendar-day-header {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .day-number {
+        font-size: 0.9rem;
+    }
+    
+    .entry-indicator {
+        font-size: 0.6rem;
+        padding: 0.1rem 0.3rem;
+    }
+    
+    .calendar-navigation h3 {
+        font-size: 1.1rem;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions .btn-primary,
+    .form-actions .btn-secondary {
+        width: 100%;
+    }
+}
+
+/* Weekly Planning Styles */
+.week-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.week-navigation h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.3rem;
+}
+
+.weekly-schedule {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.schedule-header {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    background: #667eea;
+    color: white;
+}
+
+.time-column,
+.day-column {
+    padding: 1rem;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.schedule-body {
+    background: #f8f9fa;
+}
+
+.schedule-row {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    border-bottom: 1px solid #e9ecef;
+}
+
+.time-cell {
+    padding: 0.75rem 0.5rem;
+    background: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.schedule-cell {
+    padding: 0.75rem 0.5rem;
+    background: white;
+    border-right: 1px solid #e9ecef;
+    min-height: 40px;
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+.schedule-cell:hover {
+    background: #f0f8ff;
+}
+
+.schedule-cell.occupied {
+    background: #e8f5e8;
+    border-left: 3px solid #28a745;
+}
+
+.weekly-summary {
+    margin-top: 2rem;
+}
+
+.weekly-summary h3 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 0.5rem;
+}
+
+/* Weekly planning responsive design */
+@media (max-width: 768px) {
+    .schedule-header,
+    .schedule-row {
+        grid-template-columns: 60px repeat(7, 1fr);
+    }
+    
+    .time-column,
+    .day-column {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
+    
+    .time-cell {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.7rem;
+    }
+    
+    .schedule-cell {
+        padding: 0.5rem 0.25rem;
+        min-height: 30px;
+    }
+    
+    .week-navigation h3 {
+        font-size: 1.1rem;
+    }
+}
+
+/* Admin Planning Styles */
+.admin-planning-controls {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 2px solid #667eea;
+}
+
+.user-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background: white;
+}
+
+.user-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+}
+
+.all-users-summary {
+    margin-top: 2rem;
+}
+
+.all-users-summary h3 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 0.5rem;
+}
+
+.admin-cell.occupied {
+    background: #e8f5e8;
+    border-left: 3px solid #28a745;
+    position: relative;
+}
+
+.admin-cell.occupied:hover {
+    background: #d4edda;
+}
+
+/* Admin planning responsive design */
+@media (max-width: 768px) {
+    .admin-planning-controls {
+        padding: 1rem;
+    }
+    
+    .admin-planning-controls .form-row {
+        flex-direction: column;
+    }
+    
+    .admin-planning-controls .btn-primary {
+        width: 100%;
+        margin-top: 1rem;
+    }
+}
+
+/* Report Calendar Styles */
+.report-calendar-container {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.report-calendar-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.report-calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #667eea;
+}
+
+.report-day-header {
+    padding: 1rem;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.report-calendar-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e9ecef;
+}
+
+.report-day {
+    background: white;
+    min-height: 100px;
+    padding: 0.5rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: background 0.3s;
+}
+
+.report-day.empty {
+    background: #f8f9fa;
+}
+
+.report-day.today {
+    background: #e3f2fd;
+    border: 2px solid #667eea;
+}
+
+.report-day.has-entry {
+    background: #f0f8ff;
+    border-left: 4px solid #667eea;
+}
+
+.report-day.today.has-entry {
+    background: #e1f5fe;
+    border: 2px solid #667eea;
+    border-left: 4px solid #667eea;
+}
+
+.report-day-number {
+    font-weight: bold;
+    color: #333;
+    align-self: flex-start;
+    font-size: 1rem;
+}
+
+.report-entry-info {
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.report-hours {
+    background: #667eea;
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.report-status {
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.report-status.status-approved {
+    color: #28a745;
+}
+
+.report-status.status-pending {
+    color: #ffc107;
+}
+
+.report-status.status-rejected {
+    color: #dc3545;
+}
+
+/* Report calendar responsive design */
+@media (max-width: 768px) {
+    .report-day {
+        min-height: 80px;
+        padding: 0.3rem;
+    }
+    
+    .report-day-header {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .report-day-number {
+        font-size: 0.9rem;
+    }
+    
+    .report-hours {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.3rem;
+    }
+    
+    .report-status {
+        font-size: 0.9rem;
+    }
+}

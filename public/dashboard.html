@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🕐 Timesheet System</h1>
+            </div>
+            <div class="user-info">
+                <span id="username">Loading...</span>
+                <span id="role-badge" class="role-badge">...</span>
+                <span id="department">...</span>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="btn-secondary">Logout</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="navigation" id="navigation">
+            <!-- Navigation will be populated based on user role -->
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content">
+            <!-- Content sections will be loaded here -->
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
