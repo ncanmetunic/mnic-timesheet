@@ -638,11 +638,22 @@ async function loadHourlyAssignmentGrid() {
                         }
                     });
                     
-                    // Check if this hour is assigned (we'll assume shifts are 8-hour blocks for now)
+                    // Check if this hour is assigned - smart assignment logic
                     dayShifts.forEach(shift => {
-                        // For simplicity, we'll show assigned status if there's any shift for this day
-                        if (parseFloat(shift.hours_assigned || 0) > 0) {
-                            isAssigned = true;
+                        const hoursAssigned = parseFloat(shift.hours_assigned || 0);
+                        if (hoursAssigned > 0 && isAvailable) {
+                            // Find the available window for this employee/day
+                            const availWindow = dayAvailability.find(avail => 
+                                hour >= avail.hour_start && hour < avail.hour_end
+                            );
+                            if (availWindow) {
+                                // Calculate if this hour falls within assigned hours
+                                // Assign hours starting from the beginning of availability window
+                                const hourOffset = hour - availWindow.hour_start;
+                                if (hourOffset < hoursAssigned) {
+                                    isAssigned = true;
+                                }
+                            }
                         }
                     });
                     
@@ -674,7 +685,7 @@ async function loadHourlyAssignmentGrid() {
     }
 }
 
-// Toggle hourly assignment
+// Toggle hourly assignment - fixed to track individual hours
 async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
     const statusElement = document.getElementById('assignment-status');
     const cell = event.target;
@@ -691,49 +702,61 @@ async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
     const isCurrentlyAssigned = cell.classList.contains('assigned');
     
     try {
-        statusElement.textContent = isCurrentlyAssigned ? 'Removing assignment...' : 'Assigning hour...';
+        statusElement.textContent = isCurrentlyAssigned ? 'Removing hour...' : 'Assigning hour...';
         statusElement.style.color = 'blue';
         
+        // Get all assigned hours for this employee/day to calculate new total
+        const allCellsForDay = document.querySelectorAll(
+            `[data-employee="${employeeId}"][data-day="${dayOfWeek}"].time-slot`
+        );
+        
+        let assignedHours = 0;
+        allCellsForDay.forEach(dayCell => {
+            if (dayCell.classList.contains('assigned') && dayCell !== cell) {
+                assignedHours += 1; // Count existing assigned hours (excluding current cell)
+            }
+        });
+        
+        // Toggle this specific hour
         if (isCurrentlyAssigned) {
-            // Remove assignment (assign 0 hours)
-            const response = await fetch('/api/assign-shift', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: employeeId,
-                    weekStartDate: currentWeekStart,
-                    dayOfWeek: dayOfWeek,
-                    hoursAssigned: 0
-                })
-            });
-            
-            if (response.ok) {
-                statusElement.textContent = `✅ Removed assignment for ${username} on ${days[dayOfWeek]}`;
-                statusElement.style.color = 'green';
+            // Remove this hour (decrease total by 1)
+            assignedHours = Math.max(0, assignedHours); // Don't include current cell since we're removing it
+        } else {
+            // Add this hour (increase total by 1) 
+            assignedHours += 1; // Add the hour we're assigning
+        }
+        
+        console.log(`Updating ${username} ${days[dayOfWeek]} to ${assignedHours} hours`);
+        
+        const response = await fetch('/api/assign-shift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: employeeId,
+                weekStartDate: currentWeekStart,
+                dayOfWeek: dayOfWeek,
+                hoursAssigned: assignedHours
+            })
+        });
+        
+        if (response.ok) {
+            // Update the visual state of just this cell
+            if (isCurrentlyAssigned) {
+                statusElement.textContent = `✅ Removed ${hour}:00 from ${username} on ${days[dayOfWeek]}`;
                 cell.classList.remove('assigned');
                 cell.classList.add('available');
                 cell.textContent = '';
-            }
-        } else {
-            // Add assignment (1 hour)
-            const response = await fetch('/api/assign-shift', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: employeeId,
-                    weekStartDate: currentWeekStart,
-                    dayOfWeek: dayOfWeek,
-                    hoursAssigned: 1 // For now, assign 1 hour per click
-                })
-            });
-            
-            if (response.ok) {
-                statusElement.textContent = `✅ Assigned ${hour}:00-${hour+1}:00 to ${username} on ${days[dayOfWeek]}`;
-                statusElement.style.color = 'green';
+            } else {
+                statusElement.textContent = `✅ Assigned ${hour}:00 to ${username} on ${days[dayOfWeek]}`;
                 cell.classList.remove('available');
                 cell.classList.add('assigned');
                 cell.textContent = '✓';
             }
+            statusElement.style.color = 'green';
+        } else {
+            const error = await response.json();
+            statusElement.textContent = `❌ Error: ${error.error}`;
+            statusElement.style.color = 'red';
         }
     } catch (error) {
         statusElement.textContent = '❌ Network error';
@@ -741,10 +764,10 @@ async function toggleHourAssignment(employeeId, dayOfWeek, hour, username) {
         console.error('Error toggling assignment:', error);
     }
     
-    // Clear status after 5 seconds
+    // Clear status after 3 seconds
     setTimeout(() => {
         statusElement.textContent = '';
-    }, 5000);
+    }, 3000);
 }
 
 // Legacy function for backward compatibility
