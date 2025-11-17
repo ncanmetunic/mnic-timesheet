@@ -251,6 +251,159 @@ app.get('/api/weekly-hours/:weekStartDate', requireAuth, async (req, res) => {
     }
 });
 
+// Reports page route
+app.get('/reports', requireManager, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'reports.html'));
+});
+
+// Reports API endpoints
+app.get('/api/reports/employee-schedule/:userId/:weekStart', requireManager, async (req, res) => {
+    try {
+        const { userId, weekStart } = req.params;
+
+        // Get employee info
+        const user = await db.getUserById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        // Get hourly assignments for the week
+        const assignments = await db.getHourlyAssignments(userId, weekStart);
+
+        // Build schedule for 7 days
+        const schedule = [];
+        const weekDate = new Date(weekStart);
+
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const currentDate = new Date(weekDate);
+            currentDate.setDate(weekDate.getDate() + dayIndex);
+            const dateStr = currentDate.toISOString().split('T')[0];
+
+            // Get assignments for this day
+            const dayAssignments = assignments.filter(a => a.day_of_week === dayIndex);
+            const hours = dayAssignments.map(a => a.hour).sort((a, b) => a - b);
+
+            schedule.push({
+                date: dateStr,
+                hours: hours,
+                totalHours: hours.length
+            });
+        }
+
+        res.json({
+            employeeName: user.username,
+            weekStart: weekStart,
+            schedule: schedule
+        });
+    } catch (error) {
+        console.error('Error generating employee schedule:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/reports/hours-summary/:startDate/:endDate', requireManager, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.params;
+
+        // Get all employees in department
+        const employees = await db.getUsersByDepartment(req.session.department);
+        const employeeData = [];
+
+        for (const employee of employees) {
+            if (employee.role !== 'employee') continue;
+
+            // Get all assignments in date range
+            const assignments = await db.getHourlyAssignmentsInDateRange(employee.id, startDate, endDate);
+
+            // Calculate weekly hours
+            const weeklyHoursMap = {};
+            assignments.forEach(a => {
+                if (!weeklyHoursMap[a.week_start_date]) {
+                    weeklyHoursMap[a.week_start_date] = 0;
+                }
+                weeklyHoursMap[a.week_start_date]++;
+            });
+
+            const weeklyHours = Object.values(weeklyHoursMap);
+            const maxWeeklyHours = weeklyHours.length > 0 ? Math.max(...weeklyHours) : 0;
+            const totalHours = assignments.length;
+            const weeksWorked = weeklyHours.length;
+
+            employeeData.push({
+                username: employee.username,
+                totalHours: totalHours,
+                weeksWorked: weeksWorked,
+                maxWeeklyHours: maxWeeklyHours
+            });
+        }
+
+        res.json({
+            startDate: startDate,
+            endDate: endDate,
+            employees: employeeData
+        });
+    } catch (error) {
+        console.error('Error generating hours summary:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/reports/availability-comparison/:userId/:weekStart', requireManager, async (req, res) => {
+    try {
+        const { userId, weekStart } = req.params;
+
+        // Get employee info
+        const user = await db.getUserById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        // Get availability and assignments
+        const availability = await db.getAvailability(userId, weekStart);
+        const assignments = await db.getHourlyAssignments(userId, weekStart);
+
+        // Build comparison for 7 days
+        const comparison = [];
+        const weekDate = new Date(weekStart);
+
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const currentDate = new Date(weekDate);
+            currentDate.setDate(weekDate.getDate() + dayIndex);
+            const dateStr = currentDate.toISOString().split('T')[0];
+
+            // Get available hours for this day
+            const dayAvailability = availability.filter(a => a.day_of_week === dayIndex);
+            const availableSlots = [];
+            dayAvailability.forEach(slot => {
+                for (let hour = slot.hour_start; hour < slot.hour_end; hour++) {
+                    availableSlots.push(hour);
+                }
+            });
+
+            // Get assigned hours for this day
+            const dayAssignments = assignments.filter(a => a.day_of_week === dayIndex);
+            const assignedSlots = dayAssignments.map(a => a.hour).sort((a, b) => a - b);
+
+            comparison.push({
+                date: dateStr,
+                availableHours: availableSlots.length,
+                availableSlots: availableSlots.length > 0 ? availableSlots.map(h => `${h}:00`) : ['None'],
+                assignedHours: assignedSlots.length,
+                assignedSlots: assignedSlots.length > 0 ? assignedSlots.map(h => `${h}:00`) : ['None']
+            });
+        }
+
+        res.json({
+            employeeName: user.username,
+            weekStart: weekStart,
+            comparison: comparison
+        });
+    } catch (error) {
+        console.error('Error generating availability comparison:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`METUnic Shift Scheduler running on port ${PORT}`);

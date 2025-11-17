@@ -111,8 +111,18 @@ class ShiftDatabase {
 
     getAllUsers() {
         return new Promise((resolve, reject) => {
-            this.db.all(`SELECT id, username, role, department, created_at FROM users ORDER BY role, username`, 
+            this.db.all(`SELECT id, username, role, department, created_at FROM users ORDER BY role, username`,
                 [], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                });
+        });
+    }
+
+    getUsersByDepartment(department) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`SELECT id, username, role, department, created_at FROM users WHERE department = ? ORDER BY role, username`,
+                [department], (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows);
                 });
@@ -326,12 +336,64 @@ class ShiftDatabase {
     getWeeklyHoursFromHourlyAssignments(userId, weekStartDate) {
         return new Promise((resolve, reject) => {
             this.db.get(`
-                SELECT COUNT(*) as total_hours 
-                FROM hourly_assignments 
+                SELECT COUNT(*) as total_hours
+                FROM hourly_assignments
                 WHERE user_id = ? AND week_start_date = ?
             `, [userId, weekStartDate], (err, row) => {
                 if (err) reject(err);
                 else resolve(row.total_hours || 0);
+            });
+        });
+    }
+
+    // Report-related methods
+    getUserById(userId) {
+        return new Promise((resolve, reject) => {
+            this.db.get(`SELECT id, username, role, department FROM users WHERE id = ?`,
+                [userId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+        });
+    }
+
+    getHourlyAssignments(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM hourly_assignments
+                WHERE user_id = ? AND week_start_date = ?
+                ORDER BY day_of_week, hour
+            `, [userId, weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    getAvailability(userId, weekStartDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM availability
+                WHERE user_id = ? AND week_start_date = ?
+                ORDER BY day_of_week, hour_start
+            `, [userId, weekStartDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    getHourlyAssignmentsInDateRange(userId, startDate, endDate) {
+        return new Promise((resolve, reject) => {
+            this.db.all(`
+                SELECT * FROM hourly_assignments
+                WHERE user_id = ?
+                AND week_start_date >= ?
+                AND week_start_date <= ?
+                ORDER BY week_start_date, day_of_week, hour
+            `, [userId, startDate, endDate], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
             });
         });
     }

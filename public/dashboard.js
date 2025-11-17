@@ -44,6 +44,7 @@ function renderNavigation() {
             <div class="nav-btn" onclick="showSection('assign-shifts')">📋 Assign Shifts</div>
             <div class="nav-btn" onclick="showSection('this-weeks-schedule')">📅 This Week's Schedule</div>
             <div class="nav-btn" onclick="showSection('monthly-reports')">📈 Monthly Reports</div>
+            <a href="/reports" class="nav-btn" style="text-decoration: none; color: inherit;">📑 Reports</a>
         `;
     } else {
         navigation.innerHTML = `
@@ -627,14 +628,17 @@ function changeWeek(direction) {
     const newWeekStart = getWeekStartDate(currentDate);
     console.log(`New week start calculated: ${newWeekStart}`);
     
-    // Limit future navigation to 12 weeks ahead (more generous for testing)
+    // Limit future navigation to 12 weeks ahead
+    // Normalize today to midnight for consistent date comparisons
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const maxFutureDate = new Date(today);
-    maxFutureDate.setDate(today.getDate() + (12 * 7)); // 12 weeks ahead
-    
+    maxFutureDate.setDate(maxFutureDate.getDate() + (12 * 7)); // 12 weeks ahead
+
     const minPastDate = new Date(today);
-    minPastDate.setDate(today.getDate() - (52 * 7)); // 1 year back
-    
+    minPastDate.setDate(minPastDate.getDate() - (52 * 7)); // 1 year back
+
     const targetDate = new Date(newWeekStart + 'T00:00:00');
     
     console.log(`Navigation check - Today: ${today.toISOString()}`);
